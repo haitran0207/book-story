@@ -74,6 +74,35 @@ open-source, offering you a personalized, ad-free journey through your favorite 
 
 ---
 
+## 🔨 Compiling from source
+
+### Prerequisites
+* **JDK 17** installed and configured in your environment.
+* **Android SDK** installed with `ANDROID_HOME` environment variable set.
+
+### Build Steps
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Acclorite/book-story.git
+   cd book-story
+   ```
+2. Grant execution permissions to the Gradle wrapper (on Unix systems):
+   ```bash
+   chmod +x gradlew
+   ```
+3. Compile the debug APK:
+   ```bash
+   ./gradlew assembleDebug
+   ```
+   Or compile the release APK:
+   ```bash
+   ./gradlew assembleRelease
+   ```
+
+The compiled APKs will be generated in `app/build/outputs/apk/debug/` or `app/build/outputs/apk/release/`.
+
+---
+
 <!------------ Download guide ------------>
 
 ## 🚚 Downloads
