@@ -50,7 +50,11 @@ class ReaderModel @Inject constructor(
     private val getTextUseCase: GetTextUseCase,
     private val getBookUseCase: GetBookUseCase,
     private val getHistoryForBookUseCase: GetHistoryForBookUseCase,
-    private val getChapterProgressUseCase: GetChapterProgressUseCase
+    private val getChapterProgressUseCase: GetChapterProgressUseCase,
+    private val startReadAloudUseCase: ua.acclorite.book_story.domain.use_case.reader.StartReadAloudUseCase,
+    private val stopReadAloudUseCase: ua.acclorite.book_story.domain.use_case.reader.StopReadAloudUseCase,
+    private val pauseReadAloudUseCase: ua.acclorite.book_story.domain.use_case.reader.PauseReadAloudUseCase,
+    private val resumeReadAloudUseCase: ua.acclorite.book_story.domain.use_case.reader.ResumeReadAloudUseCase
 ) : ViewModel() {
 
     private val mutex = Mutex()
@@ -373,6 +377,56 @@ class ReaderModel @Inject constructor(
 
                 is ReaderEvent.OnNavigateToBookInfo -> {
                     _effects.emit(ReaderEffect.OnNavigateToBookInfo(event.changePath))
+                }
+
+                is ReaderEvent.OnStartReadAloud -> {
+                    viewModelScope.launch(Dispatchers.Default) {
+                        val textToRead = _state.value.text.joinToString(" ") { it.text }
+                        startReadAloudUseCase(textToRead)
+                        _state.update {
+                            it.copy(
+                                readAloudState = it.readAloudState.copy(isPlaying = true)
+                            )
+                        }
+                    }
+                }
+                is ReaderEvent.OnPauseReadAloud -> {
+                    pauseReadAloudUseCase()
+                    _state.update {
+                        it.copy(
+                            readAloudState = it.readAloudState.copy(isPlaying = false)
+                        )
+                    }
+                }
+                is ReaderEvent.OnResumeReadAloud -> {
+                    resumeReadAloudUseCase()
+                    _state.update {
+                        it.copy(
+                            readAloudState = it.readAloudState.copy(isPlaying = true)
+                        )
+                    }
+                }
+                is ReaderEvent.OnStopReadAloud -> {
+                    stopReadAloudUseCase()
+                    _state.update {
+                        it.copy(
+                            readAloudState = ua.acclorite.book_story.domain.reader.model.ReadAloudState()
+                        )
+                    }
+                }
+                is ReaderEvent.OnChangeReadAloudSpeed -> {
+                    _state.update {
+                        it.copy(
+                            readAloudState = it.readAloudState.copy(speed = event.speed)
+                        )
+                    }
+                }
+                is ReaderEvent.OnChangeReadAloudPitch -> {
+                    _state.update {
+                        it.copy(
+                            readAloudState = it.readAloudState.copy(pitch = event.pitch)
+                        )
+                    }
                 }
             }
         }.also { eventStack.add(it) }

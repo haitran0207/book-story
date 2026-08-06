@@ -435,6 +435,8 @@ data class ReaderScreen(val bookId: Int) : Screen, Parcelable {
             paragraphHeight = paragraphHeight,
             sidePadding = sidePadding,
             bottomBarPadding = bottomBarPadding,
+            readAloudState = state.value.readAloudState,
+            onEvent = screenModel::onEvent,
             backgroundColor = backgroundColor.value,
             fontColor = fontColor.value,
             images = settings.images.value,

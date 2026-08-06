@@ -78,4 +78,11 @@ sealed class ReaderEvent {
     data class OnNavigateToBookInfo(
         val changePath: Boolean
     ) : ReaderEvent()
+
+    data object OnStartReadAloud : ReaderEvent()
+    data object OnPauseReadAloud : ReaderEvent()
+    data object OnResumeReadAloud : ReaderEvent()
+    data object OnStopReadAloud : ReaderEvent()
+    data class OnChangeReadAloudSpeed(val speed: Float) : ReaderEvent()
+    data class OnChangeReadAloudPitch(val pitch: Float) : ReaderEvent()
 }

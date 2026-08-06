@@ -14,6 +14,8 @@ import ua.acclorite.book_story.data.service.CoverImageHandlerImpl
 import ua.acclorite.book_story.data.service.FileProviderImpl
 import ua.acclorite.book_story.domain.service.CoverImageHandler
 import ua.acclorite.book_story.domain.service.FileProvider
+import ua.acclorite.book_story.domain.service.TextToSpeechService
+import ua.acclorite.book_story.data.service.TextToSpeechServiceImpl
 import javax.inject.Singleton
 
 @Module
@@ -31,4 +33,10 @@ abstract class ServiceModule {
     abstract fun bindCoverImageHandler(
         coverImageHandlerImpl: CoverImageHandlerImpl
     ): CoverImageHandler
+
+    @Binds
+    @Singleton
+    abstract fun bindTextToSpeechService(
+        impl: TextToSpeechServiceImpl
+    ): TextToSpeechService
 }

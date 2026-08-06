@@ -60,6 +60,8 @@ fun ReaderBottomBar(
     lockMenu: Boolean,
     checkpoints: List<Checkpoint>,
     bottomBarPadding: Dp,
+    readAloudState: ua.acclorite.book_story.domain.reader.model.ReadAloudState,
+    onEvent: (ReaderEvent) -> Unit,
     restoreCheckpoint: (ReaderEvent.OnRestoreCheckpoint) -> Unit,
     scroll: (ReaderEvent.OnScroll) -> Unit,
     changeProgress: (ReaderEvent.OnChangeProgress) -> Unit
@@ -153,6 +155,11 @@ fun ReaderBottomBar(
                 }
             )
         }
+        
+        ReaderReadAloudControls(
+            state = readAloudState,
+            onEvent = onEvent
+        )
     }
 }
 

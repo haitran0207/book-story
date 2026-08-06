@@ -15,6 +15,7 @@ import ua.acclorite.book_story.domain.model.library.Book
 import ua.acclorite.book_story.domain.model.reader.ReaderText
 import ua.acclorite.book_story.domain.model.reader.ReaderText.Chapter
 import ua.acclorite.book_story.presentation.reader.model.Checkpoint
+import ua.acclorite.book_story.domain.reader.model.ReadAloudState
 
 @Immutable
 data class ReaderState(
@@ -33,5 +34,7 @@ data class ReaderState(
     val lockMenu: Boolean = false,
 
     val bottomSheet: BottomSheet? = null,
-    val drawer: Drawer? = null
+    val drawer: Drawer? = null,
+    
+    val readAloudState: ReadAloudState = ReadAloudState()
 )

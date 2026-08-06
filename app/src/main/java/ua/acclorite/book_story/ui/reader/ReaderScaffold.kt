@@ -62,6 +62,8 @@ fun ReaderScaffold(
     checkpoints: List<Checkpoint>,
     showMenu: Boolean,
     lockMenu: Boolean,
+    readAloudState: ua.acclorite.book_story.domain.reader.model.ReadAloudState,
+    onEvent: (ReaderEvent) -> Unit,
     contentPadding: PaddingValues,
     verticalPadding: Dp,
     horizontalGesture: ReaderHorizontalGesture,
@@ -156,6 +158,8 @@ fun ReaderScaffold(
                     lockMenu = lockMenu,
                     checkpoints = checkpoints,
                     bottomBarPadding = bottomBarPadding,
+                    readAloudState = readAloudState,
+                    onEvent = onEvent,
                     restoreCheckpoint = restoreCheckpoint,
                     scroll = scroll,
                     changeProgress = changeProgress
