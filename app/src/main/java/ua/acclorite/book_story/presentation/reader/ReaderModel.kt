@@ -31,6 +31,7 @@ import kotlinx.coroutines.withContext
 import ua.acclorite.book_story.R
 import ua.acclorite.book_story.core.helpers.coerceAndPreventNaN
 import ua.acclorite.book_story.core.ui.UIText
+import ua.acclorite.book_story.domain.model.reader.ReaderText
 import ua.acclorite.book_story.domain.model.reader.ReaderText.Chapter
 import ua.acclorite.book_story.domain.use_case.book.GetBookUseCase
 import ua.acclorite.book_story.domain.use_case.book.GetChapterProgressUseCase
@@ -381,7 +382,7 @@ class ReaderModel @Inject constructor(
 
                 is ReaderEvent.OnStartReadAloud -> {
                     viewModelScope.launch(Dispatchers.Default) {
-                        val textToRead = _state.value.text.joinToString(" ") { it.text }
+                        val textToRead = _state.value.text.filterIsInstance<ReaderText.Text>().joinToString(" ") { it.line.text }
                         startReadAloudUseCase(textToRead)
                         _state.update {
                             it.copy(

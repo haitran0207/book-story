@@ -1,5 +1,22 @@
 # Book's Story - Build & Testing Guide
 
+## ⚡ Quick Compilation Commands
+
+| Action / Build Type | Command | Output Path |
+| :--- | :--- | :--- |
+| **Build Debug APK (For Testing)** | `./gradlew assembleDebug` | `app/build/outputs/apk/debug/app-debug.apk` |
+| **Build Release-Debug APK** | `./gradlew assembleReleaseDebug` | `app/build/outputs/apk/releaseDebug/app-release-debug.apk` |
+| **Build Release APK (Unsigned)** | `./gradlew assembleRelease` | `app/build/outputs/apk/release/app-release-unsigned.apk` |
+| **Clean & Rebuild Debug APK** | `./gradlew clean assembleDebug` | `app/build/outputs/apk/debug/app-debug.apk` |
+| **Install APK to Connected Phone** | `adb install app/build/outputs/apk/debug/app-debug.apk` | N/A |
+
+### Quick Start Command (One-liner)
+```bash
+cd /Users/macos/private/SourceCode/book-story && ./gradlew assembleDebug
+```
+
+---
+
 ## Prerequisites
 
 ### Required Software
