@@ -170,6 +170,7 @@ fun ReaderScaffold(
         ReaderLayout(
             text = text,
             listState = listState,
+            readAloudState = readAloudState,
             contentPadding = contentPadding,
             verticalPadding = verticalPadding,
             horizontalGesture = horizontalGesture,

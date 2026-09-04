@@ -22,6 +22,19 @@
         tools:node="remove"
         tools:ignore="ScopedStorage" />
 
+    <!-- Required for Android 11+ (API 30+) to bind to Text-to-Speech engines -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
+    <!-- Required for Read-Aloud background playback, lock screen media controls & notifications -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <application
         android:name=".Application"
         android:allowBackup="false"
@@ -55,6 +68,12 @@
             android:exported="false"
             android:theme="@style/BookStory"
             android:windowSoftInputMode="adjustResize" />
+
+        <!-- Read aloud media service for background playback & lock screen controls -->
+        <service
+            android:name=".data.service.ReadAloudService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="false" />
 
         <!-- Save app locales -->
         <service

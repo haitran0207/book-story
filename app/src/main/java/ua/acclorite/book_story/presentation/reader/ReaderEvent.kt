@@ -85,4 +85,6 @@ sealed class ReaderEvent {
     data object OnStopReadAloud : ReaderEvent()
     data class OnChangeReadAloudSpeed(val speed: Float) : ReaderEvent()
     data class OnChangeReadAloudPitch(val pitch: Float) : ReaderEvent()
+    data object OnPreviousReadAloudParagraph : ReaderEvent()
+    data object OnNextReadAloudParagraph : ReaderEvent()
 }

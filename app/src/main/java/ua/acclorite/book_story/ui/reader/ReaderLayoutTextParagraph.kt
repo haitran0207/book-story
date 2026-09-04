@@ -6,14 +6,21 @@
 
 package ua.acclorite.book_story.ui.reader
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
@@ -22,6 +29,7 @@ import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
 import ua.acclorite.book_story.domain.model.reader.ReaderText.Text
 import ua.acclorite.book_story.presentation.reader.ReaderEvent
 import ua.acclorite.book_story.presentation.reader.model.ReaderFontThickness
@@ -50,13 +58,43 @@ fun LazyItemScope.ReaderLayoutTextParagraph(
     highlightedReadingThickness: FontWeight,
     toolbarHidden: Boolean,
     openTranslator: (ReaderEvent.OnOpenTranslator) -> Unit,
-    menuVisibility: (ReaderEvent.OnMenuVisibility) -> Unit
+    menuVisibility: (ReaderEvent.OnMenuVisibility) -> Unit,
+    isReading: Boolean = false
 ) {
+    val highlightBgColor by animateColorAsState(
+        targetValue = if (isReading) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+        } else {
+            Color.Transparent
+        },
+        label = "readAloudHighlightBg"
+    )
+
+    val highlightBorderColor by animateColorAsState(
+        targetValue = if (isReading) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+        } else {
+            Color.Transparent
+        },
+        label = "readAloudHighlightBorder"
+    )
+
     Column(
         modifier = Modifier
             .animateItem(fadeInSpec = null, fadeOutSpec = null)
             .fillMaxWidth()
-            .padding(horizontal = sidePadding),
+            .padding(horizontal = sidePadding)
+            .clip(RoundedCornerShape(8.dp))
+            .background(highlightBgColor)
+            .border(
+                width = if (isReading) 1.5.dp else 0.dp,
+                color = highlightBorderColor,
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(
+                horizontal = if (isReading) 10.dp else 0.dp,
+                vertical = if (isReading) 6.dp else 0.dp
+            ),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = horizontalAlignment
     ) {

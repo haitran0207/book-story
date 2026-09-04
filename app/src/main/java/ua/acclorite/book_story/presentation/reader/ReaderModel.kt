@@ -16,6 +16,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -55,7 +56,10 @@ class ReaderModel @Inject constructor(
     private val startReadAloudUseCase: ua.acclorite.book_story.domain.use_case.reader.StartReadAloudUseCase,
     private val stopReadAloudUseCase: ua.acclorite.book_story.domain.use_case.reader.StopReadAloudUseCase,
     private val pauseReadAloudUseCase: ua.acclorite.book_story.domain.use_case.reader.PauseReadAloudUseCase,
-    private val resumeReadAloudUseCase: ua.acclorite.book_story.domain.use_case.reader.ResumeReadAloudUseCase
+    private val resumeReadAloudUseCase: ua.acclorite.book_story.domain.use_case.reader.ResumeReadAloudUseCase,
+    private val setReadAloudSpeedUseCase: ua.acclorite.book_story.domain.use_case.reader.SetReadAloudSpeedUseCase,
+    private val setReadAloudPitchUseCase: ua.acclorite.book_story.domain.use_case.reader.SetReadAloudPitchUseCase,
+    private val readAloudNotificationManager: ua.acclorite.book_story.data.service.ReadAloudNotificationManager
 ) : ViewModel() {
 
     private val mutex = Mutex()
@@ -67,7 +71,32 @@ class ReaderModel @Inject constructor(
     val effects = _effects.asSharedFlow()
 
     private var scrollJob: Job? = null
+    private var readAloudJob: Job? = null
     private val eventStack = mutableListOf<Job>()
+
+    init {
+        viewModelScope.launch {
+            readAloudNotificationManager.actionEvents.collect { action ->
+                when (action) {
+                    ua.acclorite.book_story.domain.model.reader.ReadAloudAction.PLAY -> {
+                        onEvent(ReaderEvent.OnResumeReadAloud)
+                    }
+                    ua.acclorite.book_story.domain.model.reader.ReadAloudAction.PAUSE -> {
+                        onEvent(ReaderEvent.OnPauseReadAloud)
+                    }
+                    ua.acclorite.book_story.domain.model.reader.ReadAloudAction.NEXT -> {
+                        onEvent(ReaderEvent.OnNextReadAloudParagraph)
+                    }
+                    ua.acclorite.book_story.domain.model.reader.ReadAloudAction.PREVIOUS -> {
+                        onEvent(ReaderEvent.OnPreviousReadAloudParagraph)
+                    }
+                    ua.acclorite.book_story.domain.model.reader.ReadAloudAction.STOP -> {
+                        onEvent(ReaderEvent.OnStopReadAloud)
+                    }
+                }
+            }
+        }
+    }
 
     fun onEvent(event: ReaderEvent) {
         viewModelScope.launch {
@@ -268,9 +297,14 @@ class ReaderModel @Inject constructor(
                 }
 
                 is ReaderEvent.OnLeave -> {
+                    readAloudJob?.cancel()
+                    readAloudJob = null
+                    stopReadAloudUseCase()
+
                     _state.update {
                         it.copy(
-                            lockMenu = true
+                            lockMenu = true,
+                            readAloudState = it.readAloudState.copy(isPlaying = false, currentReadingIndex = null)
                         )
                     }
 
@@ -381,52 +415,89 @@ class ReaderModel @Inject constructor(
                 }
 
                 is ReaderEvent.OnStartReadAloud -> {
-                    viewModelScope.launch(Dispatchers.Default) {
-                        val textToRead = _state.value.text.filterIsInstance<ReaderText.Text>().joinToString(" ") { it.line.text }
-                        startReadAloudUseCase(textToRead)
-                        _state.update {
-                            it.copy(
-                                readAloudState = it.readAloudState.copy(isPlaying = true)
-                            )
-                        }
-                    }
+                    startReadingLoop()
                 }
                 is ReaderEvent.OnPauseReadAloud -> {
+                    readAloudJob?.cancel()
+                    readAloudJob = null
                     pauseReadAloudUseCase()
                     _state.update {
                         it.copy(
                             readAloudState = it.readAloudState.copy(isPlaying = false)
                         )
                     }
+                    val currentIdx = _state.value.readAloudState.currentReadingIndex
+                    val currentText = if (currentIdx != null && currentIdx in _state.value.text.indices) {
+                        (_state.value.text[currentIdx] as? ReaderText.Text)?.line?.text?.trim()?.take(120) ?: ""
+                    } else ""
+                    readAloudNotificationManager.update(
+                        bookTitle = _state.value.book.title,
+                        paragraphText = currentText,
+                        isPlaying = false,
+                        speed = _state.value.readAloudState.speed
+                    )
                 }
                 is ReaderEvent.OnResumeReadAloud -> {
-                    resumeReadAloudUseCase()
-                    _state.update {
-                        it.copy(
-                            readAloudState = it.readAloudState.copy(isPlaying = true)
-                        )
-                    }
+                    startReadingLoop(_state.value.readAloudState.currentReadingIndex)
                 }
                 is ReaderEvent.OnStopReadAloud -> {
+                    readAloudJob?.cancel()
+                    readAloudJob = null
                     stopReadAloudUseCase()
+                    readAloudNotificationManager.stop()
                     _state.update {
                         it.copy(
-                            readAloudState = ua.acclorite.book_story.domain.reader.model.ReadAloudState()
+                            readAloudState = it.readAloudState.copy(
+                                isPlaying = false,
+                                currentReadingIndex = null
+                            )
                         )
                     }
                 }
                 is ReaderEvent.OnChangeReadAloudSpeed -> {
+                    setReadAloudSpeedUseCase(event.speed)
                     _state.update {
                         it.copy(
                             readAloudState = it.readAloudState.copy(speed = event.speed)
                         )
                     }
+                    if (_state.value.readAloudState.isPlaying) {
+                        startReadingLoop(_state.value.readAloudState.currentReadingIndex)
+                    } else {
+                        val currentIdx = _state.value.readAloudState.currentReadingIndex
+                        val currentText = if (currentIdx != null && currentIdx in _state.value.text.indices) {
+                            (_state.value.text[currentIdx] as? ReaderText.Text)?.line?.text?.trim()?.take(120) ?: ""
+                        } else ""
+                        readAloudNotificationManager.update(
+                            bookTitle = _state.value.book.title,
+                            paragraphText = currentText,
+                            isPlaying = false,
+                            speed = event.speed
+                        )
+                    }
                 }
                 is ReaderEvent.OnChangeReadAloudPitch -> {
+                    setReadAloudPitchUseCase(event.pitch)
                     _state.update {
                         it.copy(
                             readAloudState = it.readAloudState.copy(pitch = event.pitch)
                         )
+                    }
+                }
+                is ReaderEvent.OnPreviousReadAloudParagraph -> {
+                    val currentIdx = _state.value.readAloudState.currentReadingIndex ?: _state.value.listState.firstVisibleItemIndex
+                    val allItems = _state.value.text
+                    val prevIdx = allItems.indices.reversed().firstOrNull { it < currentIdx && allItems[it] is ReaderText.Text }
+                    if (prevIdx != null) {
+                        startReadingLoop(prevIdx)
+                    }
+                }
+                is ReaderEvent.OnNextReadAloudParagraph -> {
+                    val currentIdx = _state.value.readAloudState.currentReadingIndex ?: _state.value.listState.firstVisibleItemIndex
+                    val allItems = _state.value.text
+                    val nextIdx = allItems.indices.firstOrNull { it > currentIdx && allItems[it] is ReaderText.Text }
+                    if (nextIdx != null) {
+                        startReadingLoop(nextIdx)
                     }
                 }
             }
@@ -456,6 +527,10 @@ class ReaderModel @Inject constructor(
 
     fun clearAsync() {
         viewModelScope.launch {
+            readAloudJob?.cancel()
+            readAloudJob = null
+            stopReadAloudUseCase()
+            readAloudNotificationManager.stop()
             eventStack.forEach { job ->
                 job.cancel()
             }
@@ -464,6 +539,10 @@ class ReaderModel @Inject constructor(
     }
 
     suspend fun clear() {
+        readAloudJob?.cancel()
+        readAloudJob = null
+        stopReadAloudUseCase()
+        readAloudNotificationManager.stop()
         eventStack.forEach { job ->
             job.cancel()
             job.join()
@@ -548,5 +627,72 @@ class ReaderModel @Inject constructor(
             coroutineContext.ensureActive()
             this.value = function(this.value)
         }
+    }
+
+    private fun startReadingLoop(fromIndex: Int? = null) {
+        readAloudJob?.cancel()
+        readAloudJob = viewModelScope.launch(Dispatchers.Default) {
+            val allItems = _state.value.text
+            if (allItems.isEmpty()) return@launch
+
+            val startIdx = fromIndex
+                ?: _state.value.readAloudState.currentReadingIndex
+                ?: run {
+                    val visible = _state.value.listState.firstVisibleItemIndex
+                    val found = allItems.indices.firstOrNull { it >= visible && allItems[it] is ReaderText.Text }
+                    found ?: allItems.indices.firstOrNull { allItems[it] is ReaderText.Text } ?: 0
+                }
+
+            setReadAloudSpeedUseCase(_state.value.readAloudState.speed)
+            setReadAloudPitchUseCase(_state.value.readAloudState.pitch)
+
+            var index = startIdx
+            while (isActive && index < allItems.size) {
+                val item = allItems[index]
+                if (item is ReaderText.Text && item.line.text.isNotBlank()) {
+                    _state.update {
+                        it.copy(
+                            readAloudState = it.readAloudState.copy(
+                                isPlaying = true,
+                                currentReadingIndex = index
+                            )
+                        )
+                    }
+
+                    readAloudNotificationManager.update(
+                        bookTitle = _state.value.book.title,
+                        paragraphText = item.line.text.trim().take(120),
+                        isPlaying = true,
+                        speed = _state.value.readAloudState.speed
+                    )
+
+                    val finished = startReadAloudUseCase(item.line.text)
+                    if (!finished || !isActive) {
+                        break
+                    }
+                }
+                index++
+            }
+
+            if (isActive && index >= allItems.size) {
+                readAloudNotificationManager.stop()
+                _state.update {
+                    it.copy(
+                        readAloudState = it.readAloudState.copy(
+                            isPlaying = false,
+                            currentReadingIndex = null
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        readAloudJob?.cancel()
+        readAloudJob = null
+        stopReadAloudUseCase()
+        readAloudNotificationManager.stop()
     }
 }

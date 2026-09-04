@@ -3,10 +3,10 @@ package ua.acclorite.book_story.domain.use_case.reader
 import ua.acclorite.book_story.domain.service.TextToSpeechService
 import javax.inject.Inject
 
-class StartReadAloudUseCase @Inject constructor(
+class SetReadAloudSpeedUseCase @Inject constructor(
     private val ttsService: TextToSpeechService
 ) {
-    suspend operator fun invoke(text: String): Boolean {
-        return ttsService.speakParagraph(text)
+    operator fun invoke(speed: Float) {
+        ttsService.setSpeed(speed)
     }
 }

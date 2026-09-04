@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -52,6 +53,7 @@ import ua.acclorite.book_story.ui.theme.model.HorizontalAlignment
 fun ReaderLayout(
     text: List<ReaderText>,
     listState: LazyListState,
+    readAloudState: ua.acclorite.book_story.domain.reader.model.ReadAloudState,
     contentPadding: PaddingValues,
     verticalPadding: Dp,
     horizontalGesture: ReaderHorizontalGesture,
@@ -97,6 +99,27 @@ fun ReaderLayout(
     openDictionary: (ReaderEvent.OnOpenDictionary) -> Unit
 ) {
     val activity = LocalActivity.current
+
+    LaunchedEffect(readAloudState.currentReadingIndex) {
+        val index = readAloudState.currentReadingIndex ?: return@LaunchedEffect
+        val visibleInfo = listState.layoutInfo.visibleItemsInfo
+        if (visibleInfo.isEmpty()) {
+            listState.requestScrollToItem(index)
+            return@LaunchedEffect
+        }
+
+        val firstVisible = visibleInfo.first().index
+        val lastVisible = visibleInfo.last().index
+
+        if (index <= firstVisible || index >= lastVisible - 1) {
+            try {
+                listState.animateScrollToItem(index)
+            } catch (_: Exception) {
+                listState.requestScrollToItem(index)
+            }
+        }
+    }
+
     SelectionContainer(
         onCopyRequested = {
             if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
@@ -217,7 +240,8 @@ fun ReaderLayout(
                                     highlightedReadingThickness = highlightedReadingThickness,
                                     toolbarHidden = toolbarHidden,
                                     openTranslator = openTranslator,
-                                    menuVisibility = menuVisibility
+                                    menuVisibility = menuVisibility,
+                                    isReading = (readAloudState.isPlaying || readAloudState.currentReadingIndex != null) && readAloudState.currentReadingIndex == index
                                 )
                             }
                         }
