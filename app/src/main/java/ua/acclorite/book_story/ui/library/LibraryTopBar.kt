@@ -81,11 +81,13 @@ fun LibraryTopBar(
 ) {
     val processCategoryTitle = stringResource(id = R.string.process_tab)
     val allBooksCategoryTitle = stringResource(id = R.string.all_books_tab)
+    val completedCategoryTitle = stringResource(id = R.string.completed_tab)
     val categoriesWithBooks = remember(
         books,
         categories,
         processCategoryTitle,
-        allBooksCategoryTitle
+        allBooksCategoryTitle,
+        completedCategoryTitle
     ) {
         derivedStateOf {
             val list = mutableListOf<Pair<Category, List<SelectableBook>>>()
@@ -103,7 +105,13 @@ fun LibraryTopBar(
                 ?: Category(id = -2, title = allBooksCategoryTitle)
             list.add(allBooksCategory to books)
 
-            // 3. Custom Categories (id > 0)
+            // 3. Completed Tab (id = -3): completed books
+            val completedCategory = categories.find { it.id == -3 }?.copy(title = completedCategoryTitle)
+                ?: Category(id = -3, title = completedCategoryTitle)
+            val completedBooks = books.filter { it.data.progress >= 1f }
+            list.add(completedCategory to completedBooks)
+
+            // 4. Custom Categories (id > 0)
             categories.filter { it.id > 0 }.sortedBy { it.order }.forEach { category ->
                 list.add(category to books.filter { it.data.categories.any { catId -> catId == category.id } })
             }

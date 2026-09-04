@@ -35,4 +35,8 @@ sealed class BookInfoEffect {
     data object OnNavigateToLibrarySettings : BookInfoEffect()
 
     data object OnNavigateToReader : BookInfoEffect()
+ 
+    data object OnBookMarkedCompleted : BookInfoEffect()
+
+    data object OnBookMarkedIncomplete : BookInfoEffect()
 }

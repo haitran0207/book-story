@@ -91,6 +91,16 @@ fun BookInfoEffects(effects: SharedFlow<BookInfoEffect>, book: Book) {
                         navigator.push(ReaderScreen(book.id))
                     }
                 }
+
+                is BookInfoEffect.OnBookMarkedCompleted -> {
+                    context.getString(R.string.book_marked_completed)
+                        .showToast(context = context)
+                }
+
+                is BookInfoEffect.OnBookMarkedIncomplete -> {
+                    context.getString(R.string.book_marked_incomplete)
+                        .showToast(context = context)
+                }
             }
         }
     }

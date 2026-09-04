@@ -46,6 +46,7 @@ fun BookInfoContent(
     dismissDialog: (BookInfoEvent.OnDismissDialog) -> Unit,
     dismissBottomSheet: (BookInfoEvent.OnDismissBottomSheet) -> Unit,
     navigateToReader: (BookInfoEvent.OnNavigateToReader) -> Unit,
+    toggleMarkComplete: (BookInfoEvent.OnToggleMarkComplete) -> Unit,
     navigateToLibrarySettings: (BookInfoEvent.OnNavigateToLibrarySettings) -> Unit,
     navigateBack: (BookInfoEvent.OnNavigateBack) -> Unit
 ) {
@@ -88,6 +89,7 @@ fun BookInfoContent(
         showMoveDialog = showMoveDialog,
         showDeleteDialog = showDeleteDialog,
         navigateToReader = navigateToReader,
+        toggleMarkComplete = toggleMarkComplete,
         navigateBack = navigateBack
     )
 

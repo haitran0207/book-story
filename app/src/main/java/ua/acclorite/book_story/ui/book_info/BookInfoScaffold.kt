@@ -31,6 +31,7 @@ fun BookInfoScaffold(
     showMoveDialog: (BookInfoEvent.OnShowMoveDialog) -> Unit,
     showDeleteDialog: (BookInfoEvent.OnShowDeleteDialog) -> Unit,
     navigateToReader: (BookInfoEvent.OnNavigateToReader) -> Unit,
+    toggleMarkComplete: (BookInfoEvent.OnToggleMarkComplete) -> Unit,
     navigateBack: (BookInfoEvent.OnNavigateBack) -> Unit
 ) {
     Scaffold(
@@ -58,7 +59,8 @@ fun BookInfoScaffold(
             showChangeCoverBottomSheet = showChangeCoverBottomSheet,
             showMoveDialog = showMoveDialog,
             showDeleteDialog = showDeleteDialog,
-            navigateToReader = navigateToReader
+            navigateToReader = navigateToReader,
+            toggleMarkComplete = toggleMarkComplete
         )
     }
 }

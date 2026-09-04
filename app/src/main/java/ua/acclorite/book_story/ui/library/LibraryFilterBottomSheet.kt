@@ -60,6 +60,9 @@ fun LibraryFilterBottomSheet(
             allTabs.add(
                 categories.find { it.id == -2 } ?: Category(id = -2, title = "")
             )
+            allTabs.add(
+                categories.find { it.id == -3 } ?: Category(id = -3, title = "")
+            )
             allTabs.addAll(categories.filter { it.id > 0 }.sortedBy { it.order })
 
             allTabs.getOrElse(categoriesPagerState.currentPage) {

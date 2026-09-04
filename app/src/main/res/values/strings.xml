@@ -126,6 +126,7 @@
     <string name="default_tab">Default</string>
     <string name="process_tab">Process</string>
     <string name="all_books_tab">All Book</string>
+    <string name="completed_tab">Completed</string>
     <string name="general_tab">General</string>
     <string name="display_tab">Display</string>
     <string name="color_tab">Colors</string>
@@ -406,6 +407,8 @@
     <string name="author_changed">Author was successfully changed.</string>
     <string name="description_changed">Description was successfully changed.</string>
     <string name="path_changed">File path was successfully changed.</string>
+    <string name="book_marked_completed">Book was marked as completed.</string>
+    <string name="book_marked_incomplete">Book was marked as incomplete.</string>
 
     <!-- Snackbar messages -->
     <string name="history_element_deleted">History element was successfully deleted.</string>
@@ -413,6 +416,8 @@
     <!-- BookInfo -->
     <string name="start_reading">Start</string>
     <string name="continue_reading_query">Continue from %1$s</string>
+    <string name="mark_as_completed">Mark as completed</string>
+    <string name="mark_as_incomplete">Mark as incomplete</string>
     <string name="file_details">File details</string>
     <string name="file_path">Path</string>
     <string name="file_last_opened">Last opened</string>

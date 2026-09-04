@@ -70,4 +70,6 @@ sealed class BookInfoEvent {
     data object OnNavigateToLibrarySettings : BookInfoEvent()
 
     data object OnNavigateToReader : BookInfoEvent()
+
+    data object OnToggleMarkComplete : BookInfoEvent()
 }

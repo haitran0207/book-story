@@ -65,6 +65,7 @@ object AppModule {
             DatabaseHelper.AUTO_MIGRATION_7_8.removeBooksDir(app)
             database.categoryDao.ensureDefaultCategory()
             database.categoryDao.ensureAllBooksCategory()
+            database.categoryDao.ensureCompletedCategory()
         }
     }
 }

@@ -22,6 +22,9 @@ interface CategoryDao {
     @Query("INSERT OR IGNORE INTO CategoryEntity (id, title, `order`, sortOrder, sortOrderDescending) VALUES (-2, '', -2, 'LAST_READ', 1)")
     fun ensureAllBooksCategory()
 
+    @Query("INSERT OR IGNORE INTO CategoryEntity (id, title, `order`, sortOrder, sortOrderDescending) VALUES (-3, '', -3, 'LAST_READ', 1)")
+    fun ensureCompletedCategory()
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCategory(
         category: CategoryEntity

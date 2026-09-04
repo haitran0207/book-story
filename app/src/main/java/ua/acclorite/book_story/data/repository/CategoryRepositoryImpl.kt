@@ -45,7 +45,7 @@ class CategoryRepositoryImpl @Inject constructor(
                 category = categoryMapper.toCategoryEntity(
                     if (category.id > 0) category else category.copy(
                         title = "",
-                        order = if (category.id == -1) -1 else -2
+                        order = category.id
                     )
                 )
             )

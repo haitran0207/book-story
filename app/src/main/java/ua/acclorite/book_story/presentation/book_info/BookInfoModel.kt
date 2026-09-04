@@ -352,6 +352,30 @@ class BookInfoModel @Inject constructor(
                 is BookInfoEvent.OnNavigateToReader -> {
                     _effects.emit(BookInfoEffect.OnNavigateToReader)
                 }
+
+                is BookInfoEvent.OnToggleMarkComplete -> {
+                    withContext(Dispatchers.Default) {
+                        val isCompleted = _state.value.book.progress >= 1f
+                        val updatedBook = _state.value.book.copy(
+                            progress = if (isCompleted) 0f else 1f
+                        )
+                        updateBookUseCase(updatedBook)
+                        _state.update {
+                            it.copy(
+                                book = updatedBook
+                            )
+                        }
+
+                        LibraryScreen.refreshListChannel.trySend(0)
+                        HistoryScreen.refreshListChannel.trySend(0)
+
+                        if (!isCompleted) {
+                            _effects.emit(BookInfoEffect.OnBookMarkedCompleted)
+                        } else {
+                            _effects.emit(BookInfoEffect.OnBookMarkedIncomplete)
+                        }
+                    }
+                }
             }
         }.also { eventStack.add(it) }
     }

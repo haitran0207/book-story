@@ -90,7 +90,7 @@ object LibraryScreen : Screen, Parcelable {
         val pagerState = rememberPagerState(
             initialPage = initialPage
         ) {
-            2 + settingsState.value.categories.count { it.id > 0 }
+            3 + settingsState.value.categories.count { it.id > 0 }
         }
         DisposableEffect(Unit) { onDispose { initialPage = pagerState.currentPage } }
 

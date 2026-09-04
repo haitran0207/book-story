@@ -102,7 +102,21 @@ fun LibraryPager(
                 }
             )
 
-            // 3. Custom Categories (id > 0)
+            // 3. Completed Tab (id = -3)
+            val completedCategory = categories.find { it.id == -3 }
+            val completedBooks = books.filter { it.data.progress >= 1f }
+            categorizedBooks.add(
+                if (perCategorySort && completedCategory != null) {
+                    completedBooks.sortBooks(
+                        completedCategory.sortOrder,
+                        completedCategory.sortOrderDescending
+                    )
+                } else {
+                    completedBooks
+                }
+            )
+
+            // 4. Custom Categories (id > 0)
             categories
                 .filter { it.id > 0 }
                 .sortedBy { it.order }
