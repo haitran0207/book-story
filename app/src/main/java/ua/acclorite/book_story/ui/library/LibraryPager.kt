@@ -73,27 +73,51 @@ fun LibraryPager(
         derivedStateOf {
             val categorizedBooks = mutableListOf<List<SelectableBook>>()
 
-            val categoryIds = categories.map { it.id }.toSet()
+            // 1. Process Tab (id = -1)
+            val processCategory = categories.find { it.id == -1 }
+            val inProcessBooks = books.filter {
+                (it.data.progress > 0f || it.data.lastOpened != null) && it.data.progress < 1f
+            }
+            categorizedBooks.add(
+                if (perCategorySort && processCategory != null) {
+                    inProcessBooks.sortBooks(
+                        processCategory.sortOrder,
+                        processCategory.sortOrderDescending
+                    )
+                } else {
+                    inProcessBooks
+                }
+            )
+
+            // 2. All Book Tab (id = -2)
+            val allBooksCategory = categories.find { it.id == -2 }
+            categorizedBooks.add(
+                if (perCategorySort && allBooksCategory != null) {
+                    books.sortBooks(
+                        allBooksCategory.sortOrder,
+                        allBooksCategory.sortOrderDescending
+                    )
+                } else {
+                    books
+                }
+            )
+
+            // 3. Custom Categories (id > 0)
             categories
-                .filterNot { if (!showDefaultCategory) it.id == -1 else false }
+                .filter { it.id > 0 }
                 .sortedBy { it.order }
                 .forEach { category ->
+                    val catBooks = books.filter { book ->
+                        book.data.categories.any { it == category.id }
+                    }
                     categorizedBooks.add(
-                        books.filter { book ->
-                            if (category.id == -1) {
-                                book.data.categories.none { it in categoryIds }
-                            } else {
-                                book.data.categories.any { it == category.id }
-                            }
-                        }.let { books ->
-                            if (perCategorySort) {
-                                return@let books.sortBooks(
-                                    category.sortOrder,
-                                    category.sortOrderDescending
-                                )
-                            }
-
-                            return@let books
+                        if (perCategorySort) {
+                            catBooks.sortBooks(
+                                category.sortOrder,
+                                category.sortOrderDescending
+                            )
+                        } else {
+                            catBooks
                         }
                     )
                 }
@@ -116,7 +140,7 @@ fun LibraryPager(
     HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { index ->
         val category = remember(categorizedBooks, index) {
             derivedStateOf {
-                categorizedBooks.value[index]
+                categorizedBooks.value.getOrElse(index) { emptyList() }
             }
         }
 

@@ -52,7 +52,7 @@ data class BookInfoScreen(val bookId: Int) : Screen, Parcelable {
         val listState = rememberLazyListState()
 
         val categories = remember(settingsState.value.categories) {
-            settingsState.value.categories.filterNot { it.id == -1 }
+            settingsState.value.categories.filter { it.id > 0 }
         }
 
         LaunchedEffect(Unit) {

@@ -53,9 +53,18 @@ fun LibraryFilterBottomSheet(
         categoriesPagerState.currentPage
     ) {
         derivedStateOf {
-            categories.filterNot {
-                if (!showDefaultCategory) it.id == -1 else false
-            }[categoriesPagerState.currentPage]
+            val allTabs = mutableListOf<Category>()
+            allTabs.add(
+                categories.find { it.id == -1 } ?: Category(id = -1, title = "")
+            )
+            allTabs.add(
+                categories.find { it.id == -2 } ?: Category(id = -2, title = "")
+            )
+            allTabs.addAll(categories.filter { it.id > 0 }.sortedBy { it.order })
+
+            allTabs.getOrElse(categoriesPagerState.currentPage) {
+                Category(id = -1, title = "")
+            }
         }
     }
 

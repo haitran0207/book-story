@@ -69,7 +69,7 @@ fun LibraryCategoriesOption() {
     val state = settingsModel.state.collectAsStateWithLifecycle()
 
     val categories = remember(state.value.categories) {
-        state.value.categories.filterNot { it.id == -1 }
+        state.value.categories.filter { it.id > 0 }
     }
     val dialog = remember {
         mutableStateOf<String?>(null)

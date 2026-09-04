@@ -124,6 +124,8 @@
 
     <!-- Tabs -->
     <string name="default_tab">Default</string>
+    <string name="process_tab">Process</string>
+    <string name="all_books_tab">All Book</string>
     <string name="general_tab">General</string>
     <string name="display_tab">Display</string>
     <string name="color_tab">Colors</string>

@@ -43,9 +43,9 @@ class CategoryRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             database.categoryDao.updateCategory(
                 category = categoryMapper.toCategoryEntity(
-                    if (category.id != -1) category else category.copy(
+                    if (category.id > 0) category else category.copy(
                         title = "",
-                        order = -1
+                        order = if (category.id == -1) -1 else -2
                     )
                 )
             )
@@ -56,7 +56,7 @@ class CategoryRepositoryImpl @Inject constructor(
     override suspend fun updateOrder(categories: List<Category>): Result<Unit> = runCatching {
         withContext(Dispatchers.IO) {
             categories.forEachIndexed { index, category ->
-                if (category.id == -1) return@forEachIndexed
+                if (category.id < 0) return@forEachIndexed
                 database.categoryDao.updateCategory(
                     categoryMapper.toCategoryEntity(
                         category.copy(order = index)
@@ -68,7 +68,7 @@ class CategoryRepositoryImpl @Inject constructor(
 
     override suspend fun deleteCategory(category: Category): Result<Unit> = runCatching {
         withContext(Dispatchers.IO) {
-            if (category.id == -1) throw IllegalArgumentException("Id should not be -1.")
+            if (category.id < 0) throw IllegalArgumentException("Id should not be negative.")
             database.categoryDao.deleteCategory(categoryMapper.toCategoryEntity(category))
             updateOrder(getCategories().getOrThrow())
         }

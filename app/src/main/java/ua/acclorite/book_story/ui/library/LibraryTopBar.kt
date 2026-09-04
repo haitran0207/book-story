@@ -79,35 +79,44 @@ fun LibraryTopBar(
     showDeleteDialog: (LibraryEvent.OnShowDeleteDialog) -> Unit,
     showFilterBottomSheet: (LibraryEvent.OnShowFilterBottomSheet) -> Unit
 ) {
-    val defaultCategory = stringResource(id = R.string.default_tab)
+    val processCategoryTitle = stringResource(id = R.string.process_tab)
+    val allBooksCategoryTitle = stringResource(id = R.string.all_books_tab)
     val categoriesWithBooks = remember(
         books,
         categories,
-        showDefaultCategory,
-        defaultCategory
+        processCategoryTitle,
+        allBooksCategoryTitle
     ) {
         derivedStateOf {
-            categories.filterNot { it.id == -1 }.map { category ->
-                category to books.filter { it.data.categories.any { it == category.id } }
-            }.toMutableList().apply {
-                if (showDefaultCategory) {
-                    val categoryIds = categories.map { it.id }.toSet()
-                    add(
-                        0,
-                        Category(
-                            id = -1,
-                            title = defaultCategory
-                        ) to books.filter { book ->
-                            book.data.categories.none { category -> category in categoryIds }
-                        }
-                    )
-                }
-            }.toList()
+            val list = mutableListOf<Pair<Category, List<SelectableBook>>>()
+
+            // 1. Process Tab (id = -1): books in progress
+            val processCategory = categories.find { it.id == -1 }?.copy(title = processCategoryTitle)
+                ?: Category(id = -1, title = processCategoryTitle)
+            val inProcessBooks = books.filter {
+                (it.data.progress > 0f || it.data.lastOpened != null) && it.data.progress < 1f
+            }
+            list.add(processCategory to inProcessBooks)
+
+            // 2. All Book Tab (id = -2): all books
+            val allBooksCategory = categories.find { it.id == -2 }?.copy(title = allBooksCategoryTitle)
+                ?: Category(id = -2, title = allBooksCategoryTitle)
+            list.add(allBooksCategory to books)
+
+            // 3. Custom Categories (id > 0)
+            categories.filter { it.id > 0 }.sortedBy { it.order }.forEach { category ->
+                list.add(category to books.filter { it.data.categories.any { catId -> catId == category.id } })
+            }
+
+            list.toList()
         }
     }
     val currentCategory = remember(pagerState.currentPage, categoriesWithBooks) {
         derivedStateOf {
-            categoriesWithBooks.value[pagerState.currentPage]
+            categoriesWithBooks.value.getOrElse(pagerState.currentPage) {
+                categoriesWithBooks.value.firstOrNull()
+                    ?: (Category(id = -1, title = processCategoryTitle) to emptyList())
+            }
         }
     }
 
