@@ -29,6 +29,10 @@
         </intent>
     </queries>
 
+    <!-- Required for Network & DataEngineer Cloud Sync -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <!-- Required for Read-Aloud background playback, lock screen media controls & notifications -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
@@ -45,6 +49,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Splash"
+        android:usesCleartextTraffic="true"
         tools:ignore="DataExtractionRules"
         tools:targetApi="tiramisu">
 

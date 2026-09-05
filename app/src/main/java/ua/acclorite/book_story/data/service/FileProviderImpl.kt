@@ -18,6 +18,21 @@ class FileProviderImpl @Inject constructor(
 ) : FileProvider {
 
     override fun getFileFromBook(book: Book): Result<CachedFile> = runCatching {
+        val directFile = java.io.File(book.filePath)
+        if (directFile.exists() && directFile.canRead()) {
+            return@runCatching CachedFileCompat.fromUri(
+                application,
+                android.net.Uri.fromFile(directFile),
+                CachedFileCompat.build(
+                    name = directFile.name,
+                    path = directFile.absolutePath,
+                    size = directFile.length(),
+                    lastModified = directFile.lastModified(),
+                    isDirectory = directFile.isDirectory
+                )
+            )
+        }
+
         application.contentResolver.persistedUriPermissions.forEach { storage ->
             val storageFile = CachedFileCompat.fromUri(
                 application,

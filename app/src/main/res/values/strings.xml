@@ -523,4 +523,37 @@
     <string name="remove_content_desc">Remove</string>
     <string name="note_content_desc">Note</string>
 
+    <!-- Connect & DataEngineer Cloud Feature -->
+    <string name="connect_screen">Connect</string>
+    <string name="connect_content_desc">DataEngineer Cloud</string>
+    <string name="connect_title">DataEngineer Cloud</string>
+    <string name="connect_subtitle">Connect your account to browse &amp; download books from server</string>
+    <string name="connect_server_settings">Server Settings</string>
+    <string name="connect_server_url">Backend API URL</string>
+    <string name="connect_login">Log In</string>
+    <string name="connect_register">Register</string>
+    <string name="connect_username_or_email">Username or Email</string>
+    <string name="connect_username">Username</string>
+    <string name="connect_email">Email</string>
+    <string name="connect_password">Password</string>
+    <string name="connect_first_name">First Name</string>
+    <string name="connect_last_name">Last Name</string>
+    <string name="connect_btn_login">Connect Account</string>
+    <string name="connect_btn_register">Create Account</string>
+    <string name="connect_btn_disconnect">Disconnect</string>
+    <string name="connect_logged_in_as">Connected as</string>
+    <string name="connect_remote_catalog">Server Book Catalog</string>
+    <string name="connect_search_remote_books">Search server books...</string>
+    <string name="connect_download">Download</string>
+    <string name="connect_downloading">Downloading…</string>
+    <string name="connect_downloaded">Downloaded</string>
+    <string name="connect_book_downloaded_success">\"%1$s\" downloaded &amp; added to Library!</string>
+    <string name="connect_login_success">Connected to DataEngineer successfully!</string>
+    <string name="connect_register_success">Account registered! Please log in.</string>
+    <string name="connect_logout_success">Disconnected from DataEngineer.</string>
+    <string name="connect_no_books">No books available on the server.</string>
+    <string name="connect_configure_server">Configure Server URL</string>
+    <string name="connect_server_url_hint">e.g. http://172.20.2.76:8082/data-api</string>
+    <string name="connect_error_empty_credentials">Please enter username and password.</string>
+
 </resources>

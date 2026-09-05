@@ -50,6 +50,12 @@ class CachedFile(
     val isDirectory: Boolean get() = builder?.isDirectory ?: queryParams.isDirectory
 
     fun canAccess(): Boolean {
+        if (uri.scheme == "file" || (builder?.path != null && File(builder.path).exists())) {
+            val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else builder?.path?.let { File(it) }
+            if (file != null && file.exists() && file.canRead()) {
+                return true
+            }
+        }
         return try {
             context.contentResolver.query(uri, null, null, null, null)?.let {
                 it.close()
@@ -62,6 +68,22 @@ class CachedFile(
     }
 
     fun openInputStream(): InputStream? {
+        if (uri.scheme == "file" && uri.path != null) {
+            return try {
+                java.io.FileInputStream(File(uri.path!!))
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
+        if (builder?.path != null && File(builder.path).exists()) {
+            return try {
+                java.io.FileInputStream(File(builder.path))
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
         return try {
             context.contentResolver.openInputStream(uri)
                 ?: throw Exception("Failed to open InputStream for URI: $uri")
@@ -73,6 +95,27 @@ class CachedFile(
 
     fun listFiles(forEach: ((CachedFile) -> Unit)? = null): List<CachedFile> {
         if (!isDirectory || !canAccess()) return emptyList()
+
+        if (uri.scheme == "file" || (builder?.path != null && File(builder.path).isDirectory)) {
+            val dir = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else File(builder!!.path!!)
+            val cachedFiles = mutableListOf<CachedFile>()
+            dir.listFiles()?.forEach { file ->
+                val queryFile = CachedFileCompat.fromUri(
+                    context = context,
+                    uri = Uri.fromFile(file),
+                    builder = CachedFileCompat.build(
+                        name = file.name,
+                        path = file.absolutePath,
+                        size = file.length(),
+                        lastModified = file.lastModified(),
+                        isDirectory = file.isDirectory
+                    )
+                )
+                forEach?.invoke(queryFile)
+                cachedFiles.add(queryFile)
+            }
+            return cachedFiles
+        }
 
         val cachedFiles = mutableListOf<CachedFile>()
 
@@ -174,10 +217,22 @@ class CachedFile(
      */
     private fun storeInCache(): File? {
         if (isDirectory) return null
+        if (uri.scheme == "file" && uri.path != null) {
+            val f = File(uri.path!!)
+            if (f.exists() && f.canRead()) {
+                return f
+            }
+        }
+        if (builder?.path != null) {
+            val f = File(builder.path)
+            if (f.exists() && f.canRead()) {
+                return f
+            }
+        }
         val cacheFile = File(context.cacheDir, UUID.randomUUID().toString())
 
         try {
-            context.contentResolver.openInputStream(uri)?.use { input ->
+            openInputStream()?.use { input ->
                 BufferedOutputStream(FileOutputStream(cacheFile)).use { output ->
                     input.copyTo(output)
                 }
@@ -191,6 +246,16 @@ class CachedFile(
     }
 
     private fun getFileQueryParams(): QueryParams {
+        if (uri.scheme == "file" || (builder?.name != null && builder.size != null)) {
+            val f = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else builder?.path?.let { File(it) }
+            return QueryParams(
+                name = builder?.name ?: f?.name ?: "unknown_${UUID.randomUUID()}",
+                size = builder?.size ?: f?.length() ?: 0L,
+                lastModified = builder?.lastModified ?: f?.lastModified() ?: 0L,
+                isDirectory = builder?.isDirectory ?: f?.isDirectory ?: false
+            )
+        }
+
         val nameColumn = DocumentsContract.Document.COLUMN_DISPLAY_NAME
         val sizeColumn = DocumentsContract.Document.COLUMN_SIZE
         val lastModifiedColumn = DocumentsContract.Document.COLUMN_LAST_MODIFIED
@@ -296,6 +361,12 @@ class CachedFile(
     }
 
     private fun getFilePath(): String {
+        if (uri.scheme == "file" && uri.path != null) {
+            return uri.path!!.trimEnd('/')
+        }
+        if (builder?.path != null) {
+            return builder.path.trimEnd('/')
+        }
         val tempFile = DocumentFileCompat.fromUri(context, uri)
         return tempFile?.getAbsolutePath(context)?.trimEnd('/') ?: ""
     }

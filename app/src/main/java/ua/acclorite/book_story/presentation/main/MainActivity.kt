@@ -26,6 +26,7 @@ import ua.acclorite.book_story.R
 import ua.acclorite.book_story.data.settings.SettingsManager
 import ua.acclorite.book_story.presentation.browse.BrowseModel
 import ua.acclorite.book_story.presentation.browse.BrowseScreen
+import ua.acclorite.book_story.presentation.connect.ConnectScreen
 import ua.acclorite.book_story.presentation.history.HistoryModel
 import ua.acclorite.book_story.presentation.history.HistoryScreen
 import ua.acclorite.book_story.presentation.library.LibraryModel
@@ -122,6 +123,13 @@ class MainActivity : AppCompatActivity() {
                         tooltip = R.string.browse_content_desc,
                         selectedIcon = R.drawable.browse_screen_filled,
                         unselectedIcon = R.drawable.browse_screen_outlined
+                    ),
+                    NavigatorItem(
+                        screen = ConnectScreen,
+                        title = R.string.connect_screen,
+                        tooltip = R.string.connect_content_desc,
+                        selectedIcon = R.drawable.connect_screen_filled,
+                        unselectedIcon = R.drawable.connect_screen_outlined
                     )
                 )
 
@@ -152,14 +160,14 @@ class MainActivity : AppCompatActivity() {
                             },
                             contentKey = {
                                 when (it) {
-                                    LibraryScreen, HistoryScreen, BrowseScreen -> "tabs"
+                                    LibraryScreen, HistoryScreen, BrowseScreen, ConnectScreen -> "tabs"
                                     else -> it
                                 }
                             },
                             backHandlerEnabled = { it != StartScreen }
                         ) { screen ->
                             when (screen) {
-                                LibraryScreen, HistoryScreen, BrowseScreen -> {
+                                LibraryScreen, HistoryScreen, BrowseScreen, ConnectScreen -> {
                                     NavigatorTabs(
                                         currentTab = screen,
                                         transitionSpec = {
