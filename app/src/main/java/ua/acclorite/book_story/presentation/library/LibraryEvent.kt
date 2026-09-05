@@ -67,4 +67,8 @@ sealed class LibraryEvent {
     data class OnNavigateToReader(
         val id: Int
     ) : LibraryEvent()
+
+    data class OnAllBooksFilterChange(
+        val filter: ua.acclorite.book_story.presentation.library.model.AllBooksFilter
+    ) : LibraryEvent()
 }

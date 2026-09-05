@@ -9,11 +9,13 @@ package ua.acclorite.book_story.presentation.library
 import androidx.compose.runtime.Immutable
 import ua.acclorite.book_story.core.BottomSheet
 import ua.acclorite.book_story.core.Dialog
+import ua.acclorite.book_story.presentation.library.model.AllBooksFilter
 import ua.acclorite.book_story.presentation.library.model.SelectableBook
 
 @Immutable
 data class LibraryState(
     val books: List<SelectableBook> = emptyList(),
+    val allBooksFilter: AllBooksFilter = AllBooksFilter.ALL,
 
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,

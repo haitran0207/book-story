@@ -34,7 +34,7 @@ class XmlTextParser @Inject constructor(
 
             if (
                 readerText.isNullOrEmpty() ||
-                readerText.filterIsInstance<ReaderText.Text>().isEmpty() ||
+                readerText.none { it is ReaderText.Text || it is ReaderText.Formula } ||
                 readerText.filterIsInstance<ReaderText.Chapter>().isEmpty()
             ) {
                 logE(TAG, "Could not extract text from XML.")

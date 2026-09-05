@@ -86,7 +86,7 @@ class EpubTextParser @Inject constructor(
             yield()
 
             if (
-                readerText.filterIsInstance<ReaderText.Text>().isEmpty() ||
+                readerText.none { it is ReaderText.Text || it is ReaderText.Formula } ||
                 readerText.filterIsInstance<ReaderText.Chapter>().isEmpty()
             ) {
                 logE(TAG, "Could not extract text from EPUB.")
@@ -203,7 +203,7 @@ class EpubTextParser @Inject constructor(
         }
 
         if (
-            readerText.filterIsInstance<ReaderText.Text>().isEmpty() ||
+            readerText.none { it is ReaderText.Text || it is ReaderText.Formula } ||
             readerText.filterIsInstance<ReaderText.Chapter>().isEmpty()
         ) {
             logW(TAG, "Could not extract text from [${entry.name}].")

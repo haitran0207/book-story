@@ -165,4 +165,7 @@ dependencies {
 
     // Json
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+
+    // Math & LaTeX rendering
+    implementation("ru.noties:jlatexmath-android:0.2.0")
 }

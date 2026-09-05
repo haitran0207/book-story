@@ -80,6 +80,14 @@ fun LazyItemScope.ReaderLayoutText(
             )
         }
 
+        is ReaderText.Formula -> {
+            ReaderLayoutTextFormula(
+                formula = entry,
+                sidePadding = sidePadding,
+                fontColor = fontColor
+            )
+        }
+
         is ReaderText.Text -> {
             ReaderLayoutTextParagraph(
                 paragraph = entry,

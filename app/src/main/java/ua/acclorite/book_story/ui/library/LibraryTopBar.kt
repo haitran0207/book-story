@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import ua.acclorite.book_story.R
 import ua.acclorite.book_story.domain.model.library.Category
 import ua.acclorite.book_story.presentation.library.LibraryEvent
+import ua.acclorite.book_story.presentation.library.model.AllBooksFilter
 import ua.acclorite.book_story.presentation.library.model.SelectableBook
 import ua.acclorite.book_story.ui.common.components.common.AnimatedVisibility
 import ua.acclorite.book_story.ui.common.components.common.IconButton
@@ -56,6 +57,7 @@ import ua.acclorite.book_story.ui.navigator.NavigatorIconButton
 @Composable
 fun LibraryTopBar(
     books: List<SelectableBook>,
+    allBooksFilter: AllBooksFilter = AllBooksFilter.ALL,
     selectedItemsCount: Int,
     hasSelectedItems: Boolean,
     showBookCount: Boolean,
@@ -85,6 +87,7 @@ fun LibraryTopBar(
     val categoriesWithBooks = remember(
         books,
         categories,
+        allBooksFilter,
         processCategoryTitle,
         allBooksCategoryTitle,
         completedCategoryTitle
@@ -100,10 +103,22 @@ fun LibraryTopBar(
             }
             list.add(processCategory to inProcessBooks)
 
-            // 2. All Book Tab (id = -2): all books
+            // 2. All Book Tab (id = -2): all books with filter
             val allBooksCategory = categories.find { it.id == -2 }?.copy(title = allBooksCategoryTitle)
                 ?: Category(id = -2, title = allBooksCategoryTitle)
-            list.add(allBooksCategory to books)
+            val filteredAllBooks = when (allBooksFilter) {
+                AllBooksFilter.ALL -> books
+                AllBooksFilter.NOT_STARTED -> books.filter {
+                    it.data.progress == 0f && it.data.lastOpened == null
+                }
+                AllBooksFilter.PROCESSING -> books.filter {
+                    (it.data.progress > 0f || it.data.lastOpened != null) && it.data.progress < 1f
+                }
+                AllBooksFilter.COMPLETED -> books.filter {
+                    it.data.progress >= 1f
+                }
+            }
+            list.add(allBooksCategory to filteredAllBooks)
 
             // 3. Completed Tab (id = -3): completed books
             val completedCategory = categories.find { it.id == -3 }?.copy(title = completedCategoryTitle)

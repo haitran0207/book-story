@@ -30,4 +30,10 @@ sealed class ReaderText {
     data class Image(
         val imageBitmap: ImageBitmap
     ) : ReaderText()
+
+    @Immutable
+    data class Formula(
+        val imageBitmap: ImageBitmap,
+        val latex: String = ""
+    ) : ReaderText()
 }

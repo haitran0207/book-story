@@ -134,6 +134,12 @@
     <string name="sort_tab">Sort</string>
     <string name="reader_tab">Reader</string>
 
+    <!-- All Books Filter -->
+    <string name="filter_all">All</string>
+    <string name="filter_not_start">Not start</string>
+    <string name="filter_processing">Processing</string>
+    <string name="filter_completed">Completed</string>
+
     <!-- Settings categories -->
     <string name="general_settings">General</string>
     <string name="general_settings_desc">App language</string>

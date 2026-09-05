@@ -51,5 +51,11 @@
     <string name="report">Báo cáo</string>
     <string name="translate">Dịch</string>
     <string name="dictionary">Từ điển</string>
-    <string name="next">Tiếp</string>
+    <string name="process_tab">Đang đọc</string>
+    <string name="all_books_tab">Tất cả</string>
+    <string name="completed_tab">Đã xong</string>
+    <string name="filter_all">Tất cả</string>
+    <string name="filter_not_start">Chưa đọc</string>
+    <string name="filter_processing">Đang đọc</string>
+    <string name="filter_completed">Đã xong</string>
 </resources>

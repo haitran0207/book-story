@@ -107,6 +107,7 @@ object LibraryScreen : Screen, Parcelable {
 
         LibraryContent(
             books = state.value.books,
+            allBooksFilter = state.value.allBooksFilter,
             selectedItemsCount = state.value.selectedItemsCount,
             hasSelectedItems = state.value.hasSelectedItems,
             titlePosition = settings.libraryTitlePosition.value,
@@ -137,6 +138,7 @@ object LibraryScreen : Screen, Parcelable {
             changeSortOrder = { settings.librarySortOrder.update(it) },
             changeSortOrderDescending = { settings.librarySortOrderDescending.update(it) },
             selectBook = screenModel::onEvent,
+            onAllBooksFilterChange = screenModel::onEvent,
             searchVisibility = screenModel::onEvent,
             requestFocus = screenModel::onEvent,
             searchQueryChange = screenModel::onEvent,

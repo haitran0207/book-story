@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import ua.acclorite.book_story.domain.model.library.Category
 import ua.acclorite.book_story.presentation.library.LibraryEvent
+import ua.acclorite.book_story.presentation.library.model.AllBooksFilter
 import ua.acclorite.book_story.presentation.library.model.LibraryLayout
 import ua.acclorite.book_story.presentation.library.model.LibrarySortOrder
 import ua.acclorite.book_story.presentation.library.model.LibraryTitlePosition
@@ -29,6 +30,7 @@ import ua.acclorite.book_story.presentation.library.model.SelectableBook
 @Composable
 fun LibraryScaffold(
     books: List<SelectableBook>,
+    allBooksFilter: AllBooksFilter = AllBooksFilter.ALL,
     selectedItemsCount: Int,
     hasSelectedItems: Boolean,
     titlePosition: LibraryTitlePosition,
@@ -54,6 +56,7 @@ fun LibraryScaffold(
     sortOrderDescending: Boolean,
     searchVisibility: (LibraryEvent.OnSearchVisibility) -> Unit,
     selectBook: (LibraryEvent.OnSelectBook) -> Unit,
+    onAllBooksFilterChange: (LibraryEvent.OnAllBooksFilterChange) -> Unit,
     requestFocus: (LibraryEvent.OnRequestFocus) -> Unit,
     searchQueryChange: (LibraryEvent.OnSearchQueryChange) -> Unit,
     search: (LibraryEvent.OnSearch) -> Unit,
@@ -74,6 +77,7 @@ fun LibraryScaffold(
         topBar = {
             LibraryTopBar(
                 books = books,
+                allBooksFilter = allBooksFilter,
                 selectedItemsCount = selectedItemsCount,
                 hasSelectedItems = hasSelectedItems,
                 showBookCount = showBookCount,
@@ -106,6 +110,7 @@ fun LibraryScaffold(
         ) {
             LibraryPager(
                 books = books,
+                allBooksFilter = allBooksFilter,
                 pagerState = pagerState,
                 categories = categories,
                 showDefaultCategory = showDefaultCategory,
@@ -122,6 +127,7 @@ fun LibraryScaffold(
                 isLoading = isLoading,
                 isRefreshing = isRefreshing,
                 selectBook = selectBook,
+                onAllBooksFilterChange = onAllBooksFilterChange,
                 navigateToBrowse = navigateToBrowse,
                 navigateToReader = navigateToReader,
                 navigateToBookInfo = navigateToBookInfo

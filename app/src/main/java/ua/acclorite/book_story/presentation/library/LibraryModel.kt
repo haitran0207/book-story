@@ -318,6 +318,14 @@ class LibraryModel @Inject constructor(
                 is LibraryEvent.OnNavigateToReader -> {
                     _effects.emit(LibraryEffect.OnNavigateToReader(event.id))
                 }
+
+                is LibraryEvent.OnAllBooksFilterChange -> {
+                    _state.update {
+                        it.copy(
+                            allBooksFilter = event.filter
+                        )
+                    }
+                }
             }
         }
     }

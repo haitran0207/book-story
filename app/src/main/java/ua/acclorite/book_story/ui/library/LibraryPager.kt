@@ -7,6 +7,7 @@
 package ua.acclorite.book_story.ui.library
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
@@ -17,6 +18,7 @@ import androidx.compose.ui.Modifier
 import ua.acclorite.book_story.core.helpers.compareByWithOrder
 import ua.acclorite.book_story.domain.model.library.Category
 import ua.acclorite.book_story.presentation.library.LibraryEvent
+import ua.acclorite.book_story.presentation.library.model.AllBooksFilter
 import ua.acclorite.book_story.presentation.library.model.LibraryLayout
 import ua.acclorite.book_story.presentation.library.model.LibrarySortOrder
 import ua.acclorite.book_story.presentation.library.model.LibraryTitlePosition
@@ -26,6 +28,7 @@ import ua.acclorite.book_story.ui.theme.DefaultTransition
 @Composable
 fun LibraryPager(
     books: List<SelectableBook>,
+    allBooksFilter: AllBooksFilter = AllBooksFilter.ALL,
     pagerState: PagerState,
     categories: List<Category>,
     showDefaultCategory: Boolean,
@@ -42,6 +45,7 @@ fun LibraryPager(
     isLoading: Boolean,
     isRefreshing: Boolean,
     selectBook: (LibraryEvent.OnSelectBook) -> Unit,
+    onAllBooksFilterChange: (LibraryEvent.OnAllBooksFilterChange) -> Unit,
     navigateToBrowse: (LibraryEvent.OnNavigateToBrowse) -> Unit,
     navigateToBookInfo: (LibraryEvent.OnNavigateToBookInfo) -> Unit,
     navigateToReader: (LibraryEvent.OnNavigateToReader) -> Unit,
@@ -52,7 +56,8 @@ fun LibraryPager(
         perCategorySort,
         sortOrder,
         sortOrderDescending,
-        showDefaultCategory
+        showDefaultCategory,
+        allBooksFilter
     ) {
         fun List<SelectableBook>.sortBooks(
             librarySortOrder: LibrarySortOrder,
@@ -91,14 +96,26 @@ fun LibraryPager(
 
             // 2. All Book Tab (id = -2)
             val allBooksCategory = categories.find { it.id == -2 }
+            val filteredAllBooks = when (allBooksFilter) {
+                AllBooksFilter.ALL -> books
+                AllBooksFilter.NOT_STARTED -> books.filter {
+                    it.data.progress == 0f && it.data.lastOpened == null
+                }
+                AllBooksFilter.PROCESSING -> books.filter {
+                    (it.data.progress > 0f || it.data.lastOpened != null) && it.data.progress < 1f
+                }
+                AllBooksFilter.COMPLETED -> books.filter {
+                    it.data.progress >= 1f
+                }
+            }
             categorizedBooks.add(
                 if (perCategorySort && allBooksCategory != null) {
-                    books.sortBooks(
+                    filteredAllBooks.sortBooks(
                         allBooksCategory.sortOrder,
                         allBooksCategory.sortOrderDescending
                     )
                 } else {
-                    books
+                    filteredAllBooks
                 }
             )
 
@@ -158,53 +175,73 @@ fun LibraryPager(
             }
         }
 
-        Box(modifier = Modifier.fillMaxSize()) {
-            DefaultTransition(visible = !isLoading) {
-                LibraryLayout(
-                    books = category.value,
-                    gridSize = gridSize,
-                    autoGridSize = autoGridSize,
-                    layout = layout
-                ) { book ->
-                    LibraryItem(
-                        book = book,
-                        layout = layout,
-                        hasSelectedItems = hasSelectedItems,
-                        titlePosition = titlePosition,
-                        readButton = readButton,
-                        showProgress = showProgress,
-                        selectBook = { select ->
-                            selectBook(
-                                LibraryEvent.OnSelectBook(
-                                    id = book.data.id,
-                                    select = select
+        val isAllBooksTab = index == 1
+
+        val content = @Composable {
+            Box(modifier = Modifier.fillMaxSize()) {
+                DefaultTransition(visible = !isLoading) {
+                    LibraryLayout(
+                        books = category.value,
+                        gridSize = gridSize,
+                        autoGridSize = autoGridSize,
+                        layout = layout
+                    ) { book ->
+                        LibraryItem(
+                            book = book,
+                            layout = layout,
+                            hasSelectedItems = hasSelectedItems,
+                            titlePosition = titlePosition,
+                            readButton = readButton,
+                            showProgress = showProgress,
+                            selectBook = { select ->
+                                selectBook(
+                                    LibraryEvent.OnSelectBook(
+                                        id = book.data.id,
+                                        select = select
+                                    )
                                 )
-                            )
-                        },
-                        navigateToBookInfo = {
-                            navigateToBookInfo(
-                                LibraryEvent.OnNavigateToBookInfo(
-                                    book.data.id
+                            },
+                            navigateToBookInfo = {
+                                navigateToBookInfo(
+                                    LibraryEvent.OnNavigateToBookInfo(
+                                        book.data.id
+                                    )
                                 )
-                            )
-                        },
-                        navigateToReader = {
-                            navigateToReader(
-                                LibraryEvent.OnNavigateToReader(
-                                    book.data.id
+                            },
+                            navigateToReader = {
+                                navigateToReader(
+                                    LibraryEvent.OnNavigateToReader(
+                                        book.data.id
+                                    )
                                 )
-                            )
-                        }
-                    )
+                            }
+                        )
+                    }
+                }
+
+                LibraryEmptyPlaceholder(
+                    isLoading = isLoading,
+                    isRefreshing = isRefreshing,
+                    isBooksEmpty = category.value.isEmpty(),
+                    navigateToBrowse = navigateToBrowse
+                )
+            }
+        }
+
+        if (isAllBooksTab) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                AllBooksFilterChips(
+                    selectedFilter = allBooksFilter,
+                    onFilterSelected = { filter ->
+                        onAllBooksFilterChange(LibraryEvent.OnAllBooksFilterChange(filter))
+                    }
+                )
+                Box(modifier = Modifier.weight(1f)) {
+                    content()
                 }
             }
-
-            LibraryEmptyPlaceholder(
-                isLoading = isLoading,
-                isRefreshing = isRefreshing,
-                isBooksEmpty = category.value.isEmpty(),
-                navigateToBrowse = navigateToBrowse
-            )
+        } else {
+            content()
         }
     }
 }

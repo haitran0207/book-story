@@ -15,6 +15,7 @@ import ua.acclorite.book_story.core.BottomSheet
 import ua.acclorite.book_story.core.Dialog
 import ua.acclorite.book_story.domain.model.library.Category
 import ua.acclorite.book_story.presentation.library.LibraryEvent
+import ua.acclorite.book_story.presentation.library.model.AllBooksFilter
 import ua.acclorite.book_story.presentation.library.model.LibraryLayout
 import ua.acclorite.book_story.presentation.library.model.LibrarySortOrder
 import ua.acclorite.book_story.presentation.library.model.LibraryTitlePosition
@@ -25,6 +26,7 @@ import ua.acclorite.book_story.presentation.settings.SettingsEvent
 @Composable
 fun LibraryContent(
     books: List<SelectableBook>,
+    allBooksFilter: AllBooksFilter = AllBooksFilter.ALL,
     selectedItemsCount: Int,
     hasSelectedItems: Boolean,
     titlePosition: LibraryTitlePosition,
@@ -55,6 +57,7 @@ fun LibraryContent(
     changeSortOrder: (LibrarySortOrder) -> Unit,
     changeSortOrderDescending: (Boolean) -> Unit,
     selectBook: (LibraryEvent.OnSelectBook) -> Unit,
+    onAllBooksFilterChange: (LibraryEvent.OnAllBooksFilterChange) -> Unit,
     searchVisibility: (LibraryEvent.OnSearchVisibility) -> Unit,
     requestFocus: (LibraryEvent.OnRequestFocus) -> Unit,
     searchQueryChange: (LibraryEvent.OnSearchQueryChange) -> Unit,
@@ -100,6 +103,7 @@ fun LibraryContent(
 
     LibraryScaffold(
         books = books,
+        allBooksFilter = allBooksFilter,
         selectedItemsCount = selectedItemsCount,
         hasSelectedItems = hasSelectedItems,
         titlePosition = titlePosition,
@@ -127,6 +131,7 @@ fun LibraryContent(
         searchQueryChange = searchQueryChange,
         search = search,
         selectBook = selectBook,
+        onAllBooksFilterChange = onAllBooksFilterChange,
         selectBooks = selectBooks,
         clearSelectedBooks = clearSelectedBooks,
         showMoveDialog = showMoveDialog,
