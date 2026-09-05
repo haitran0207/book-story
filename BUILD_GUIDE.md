@@ -175,6 +175,33 @@ chmod +x gradlew
 - **Optimizations**: Enabled
 - **Use for**: Production distribution
 
+## Environment Profiles / Flavors (`env`)
+
+The app supports multiple environment profiles/flavors to connect to different backend endpoints:
+
+| Flavor / Profile | Default Backend URL | Override Property / Env Var | Build Task Example |
+| :--- | :--- | :--- | :--- |
+| `dev` | `http://172.20.2.76:8082/data-api` | `DEV_SERVER_URL` | `./gradlew assembleDevDebug` |
+| `dev-ubuntu` | `http://192.168.1.21:8083/data-api` | `DEV_UBUNTU_SERVER_URL` / `DEV_UBUNTU_URL` | `./gradlew assembleDev-ubuntuDebug` |
+| `prod` | `http://172.20.2.76:8082/data-api` | `PROD_SERVER_URL` | `./gradlew assembleProdRelease` |
+
+### Building with `dev-ubuntu` Profile
+```bash
+# Build dev-ubuntu Debug APK
+./gradlew assembleDev-ubuntuDebug
+
+# Build dev-ubuntu Release-Debug APK
+./gradlew assembleDev-ubuntuRelease-debug
+
+# Build dev-ubuntu Release APK
+./gradlew assembleDev-ubuntuRelease
+```
+
+You can also override the server URL at build time using Gradle properties or environment variables:
+```bash
+./gradlew assembleDev-ubuntuDebug -PDEV_UBUNTU_SERVER_URL=http://192.168.1.21:8083/data-api
+```
+
 ## Creating a Keystore (For Release Builds)
 
 ### Using Command Line

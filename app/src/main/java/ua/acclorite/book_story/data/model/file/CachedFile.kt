@@ -69,19 +69,23 @@ class CachedFile(
 
     fun openInputStream(): InputStream? {
         if (uri.scheme == "file" && uri.path != null) {
-            return try {
-                java.io.FileInputStream(File(uri.path!!))
+            try {
+                val file = File(uri.path!!)
+                if (file.exists() && file.canRead()) {
+                    return java.io.FileInputStream(file)
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
-                null
             }
         }
-        if (builder?.path != null && File(builder.path).exists()) {
-            return try {
-                java.io.FileInputStream(File(builder.path))
+        if (builder?.path != null) {
+            try {
+                val file = File(builder.path)
+                if (file.exists() && file.canRead()) {
+                    return java.io.FileInputStream(file)
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
-                null
             }
         }
         return try {
@@ -96,25 +100,28 @@ class CachedFile(
     fun listFiles(forEach: ((CachedFile) -> Unit)? = null): List<CachedFile> {
         if (!isDirectory || !canAccess()) return emptyList()
 
-        if (uri.scheme == "file" || (builder?.path != null && File(builder.path).isDirectory)) {
+        if (uri.scheme == "file" || (builder?.path != null && File(builder.path).isDirectory && File(builder.path).canRead())) {
             val dir = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else File(builder!!.path!!)
-            val cachedFiles = mutableListOf<CachedFile>()
-            dir.listFiles()?.forEach { file ->
-                val queryFile = CachedFileCompat.fromUri(
-                    context = context,
-                    uri = Uri.fromFile(file),
-                    builder = CachedFileCompat.build(
-                        name = file.name,
-                        path = file.absolutePath,
-                        size = file.length(),
-                        lastModified = file.lastModified(),
-                        isDirectory = file.isDirectory
+            val files = dir.listFiles()
+            if (files != null) {
+                val cachedFiles = mutableListOf<CachedFile>()
+                files.forEach { file ->
+                    val queryFile = CachedFileCompat.fromUri(
+                        context = context,
+                        uri = Uri.fromFile(file),
+                        builder = CachedFileCompat.build(
+                            name = file.name,
+                            path = file.absolutePath,
+                            size = file.length(),
+                            lastModified = file.lastModified(),
+                            isDirectory = file.isDirectory
+                        )
                     )
-                )
-                forEach?.invoke(queryFile)
-                cachedFiles.add(queryFile)
+                    forEach?.invoke(queryFile)
+                    cachedFiles.add(queryFile)
+                }
+                return cachedFiles
             }
-            return cachedFiles
         }
 
         val cachedFiles = mutableListOf<CachedFile>()
@@ -229,7 +236,11 @@ class CachedFile(
                 return f
             }
         }
-        val cacheFile = File(context.cacheDir, UUID.randomUUID().toString())
+        val extension = name.substringAfterLast('.', "")
+        val cacheFile = File(
+            context.cacheDir,
+            if (extension.isNotEmpty()) "${UUID.randomUUID()}.$extension" else UUID.randomUUID().toString()
+        )
 
         try {
             openInputStream()?.use { input ->

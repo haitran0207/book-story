@@ -29,14 +29,33 @@ android {
         buildConfigField("String", "BACKEND_BASE_URL", "\"http://172.20.2.76:8082/data-api\"")
     }
 
+    fun formatServerUrl(rawUrl: String): String {
+        val trimmed = rawUrl.trim()
+        return if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+            "http://$trimmed"
+        } else {
+            trimmed
+        }
+    }
+
     flavorDimensions += "env"
     productFlavors {
-        create("dev") {
+        create("dev-macos") {
             dimension = "env"
             val devUrl = project.findProperty("DEV_SERVER_URL") as String?
                 ?: System.getenv("DEV_SERVER_URL")
                 ?: "http://172.20.2.76:8082/data-api"
-            buildConfigField("String", "BACKEND_BASE_URL", "\"$devUrl\"")
+            buildConfigField("String", "BACKEND_BASE_URL", "\"${formatServerUrl(devUrl)}\"")
+        }
+
+        create("dev-ubuntu") {
+            dimension = "env"
+            val devUbuntuUrl = project.findProperty("DEV_UBUNTU_SERVER_URL") as String?
+                ?: project.findProperty("DEV_UBUNTU_URL") as String?
+                ?: System.getenv("DEV_UBUNTU_SERVER_URL")
+                ?: System.getenv("DEV_UBUNTU_URL")
+                ?: "http://192.168.1.21:8083/data-api"
+            buildConfigField("String", "BACKEND_BASE_URL", "\"${formatServerUrl(devUbuntuUrl)}\"")
         }
 
         create("prod") {
@@ -44,7 +63,7 @@ android {
             val prodUrl = project.findProperty("PROD_SERVER_URL") as String?
                 ?: System.getenv("PROD_SERVER_URL")
                 ?: "http://172.20.2.76:8082/data-api"
-            buildConfigField("String", "BACKEND_BASE_URL", "\"$prodUrl\"")
+            buildConfigField("String", "BACKEND_BASE_URL", "\"${formatServerUrl(prodUrl)}\"")
         }
     }
 
@@ -106,7 +125,11 @@ aboutLibraries {
     registerAndroidTasks = false
     prettyPrint = true
 
-    filterVariants = arrayOf("devDebug", "devRelease", "devRelease-debug", "prodDebug", "prodRelease", "prodRelease-debug")
+    filterVariants = arrayOf(
+        "dev-macosDebug", "dev-macosRelease", "dev-macosRelease-debug",
+        "dev-ubuntuDebug", "dev-ubuntuRelease", "dev-ubuntuRelease-debug",
+        "prodDebug", "prodRelease", "prodRelease-debug"
+    )
     excludeFields = arrayOf("generated", "funding", "description")
 }
 
