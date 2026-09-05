@@ -25,6 +25,27 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        buildConfigField("String", "BACKEND_BASE_URL", "\"http://172.20.2.76:8082/data-api\"")
+    }
+
+    flavorDimensions += "env"
+    productFlavors {
+        create("dev") {
+            dimension = "env"
+            val devUrl = project.findProperty("DEV_SERVER_URL") as String?
+                ?: System.getenv("DEV_SERVER_URL")
+                ?: "http://172.20.2.76:8082/data-api"
+            buildConfigField("String", "BACKEND_BASE_URL", "\"$devUrl\"")
+        }
+
+        create("prod") {
+            dimension = "env"
+            val prodUrl = project.findProperty("PROD_SERVER_URL") as String?
+                ?: System.getenv("PROD_SERVER_URL")
+                ?: "http://172.20.2.76:8082/data-api"
+            buildConfigField("String", "BACKEND_BASE_URL", "\"$prodUrl\"")
+        }
     }
 
     // Build types configuration
@@ -85,7 +106,7 @@ aboutLibraries {
     registerAndroidTasks = false
     prettyPrint = true
 
-    filterVariants = arrayOf("debug", "release", "release-debug")
+    filterVariants = arrayOf("devDebug", "devRelease", "devRelease-debug", "prodDebug", "prodRelease", "prodRelease-debug")
     excludeFields = arrayOf("generated", "funding", "description")
 }
 

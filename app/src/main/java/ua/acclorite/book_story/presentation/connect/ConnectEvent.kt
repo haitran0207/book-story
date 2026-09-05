@@ -23,12 +23,7 @@ sealed class ConnectEvent {
     data object OnSubmitLogin : ConnectEvent()
     data object OnSubmitRegister : ConnectEvent()
     data object OnDisconnect : ConnectEvent()
-    data object OnTestConnection : ConnectEvent()
     data object OnFetchRemoteBooks : ConnectEvent()
     data class OnSearchQueryChange(val query: String) : ConnectEvent()
     data class OnDownloadBook(val book: RemoteBookDto) : ConnectEvent()
-    
-    data class OnShowServerDialog(val show: Boolean) : ConnectEvent()
-    data class OnTempServerUrlChange(val url: String) : ConnectEvent()
-    data object OnSaveServerUrl : ConnectEvent()
 }

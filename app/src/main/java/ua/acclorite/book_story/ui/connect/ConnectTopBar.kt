@@ -7,7 +7,6 @@
 package ua.acclorite.book_story.ui.connect
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
@@ -39,13 +38,6 @@ fun ConnectTopBar(
                     StyledText(stringResource(id = R.string.connect_title))
                 },
                 contentActions = {
-                    IconButton(
-                        icon = Icons.Outlined.Dns,
-                        contentDescription = R.string.connect_server_settings,
-                        disableOnClick = false
-                    ) {
-                        onEvent(ConnectEvent.OnShowServerDialog(true))
-                    }
                     if (isLoggedIn) {
                         IconButton(
                             icon = Icons.Outlined.Refresh,

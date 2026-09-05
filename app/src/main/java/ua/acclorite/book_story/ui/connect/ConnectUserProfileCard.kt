@@ -149,48 +149,6 @@ fun ConnectUserProfileCard(
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Server URL Footer Strip (Clickable to edit server)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(MaterialTheme.shapes.small)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .clickable { onEvent(ConnectEvent.OnShowServerDialog(true)) }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Dns,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    StyledText(
-                        text = state.serverUrl,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        ),
-                        maxLines = 1
-                    )
-                }
-
-                StyledText(
-                    text = "Change",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-            }
         }
     }
 }

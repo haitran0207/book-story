@@ -115,63 +115,7 @@ fun ConnectAuthCard(
                 modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
             )
 
-            // Current Server Badge (Clickable to change)
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onEvent(ConnectEvent.OnShowServerDialog(true)) },
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Dns,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            StyledText(
-                                text = stringResource(id = R.string.connect_server_url),
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            )
-                            StyledText(
-                                text = state.serverUrl.ifBlank { "Not set" },
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                ),
-                                maxLines = 1
-                            )
-                        }
-                    }
-
-                    StyledText(
-                        text = "Edit",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Tab Selector: Log In / Register
             PrimaryTabRow(

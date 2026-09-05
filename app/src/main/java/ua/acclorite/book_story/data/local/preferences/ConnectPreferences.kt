@@ -11,6 +11,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import ua.acclorite.book_story.BuildConfig
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,7 +22,6 @@ class ConnectPreferences @Inject constructor(
     private val prefs = context.getSharedPreferences("connect_preferences", Context.MODE_PRIVATE)
 
     companion object {
-        private const val KEY_SERVER_URL = "server_url"
         private const val KEY_AUTH_TOKEN = "auth_token"
         private const val KEY_USER_ID = "user_id"
         private const val KEY_USERNAME = "username"
@@ -29,9 +29,6 @@ class ConnectPreferences @Inject constructor(
         private const val KEY_FIRST_NAME = "first_name"
         private const val KEY_LAST_NAME = "last_name"
         private const val KEY_IS_LOGGED_IN = "is_logged_in"
-
-        // Default to local development server IP
-        const val DEFAULT_SERVER_URL = "http://172.20.2.76:8082/data-api"
     }
 
     private val _serverUrlFlow = MutableStateFlow(getServerUrl())
@@ -41,13 +38,7 @@ class ConnectPreferences @Inject constructor(
     val isLoggedInFlow: StateFlow<Boolean> = _isLoggedInFlow.asStateFlow()
 
     fun getServerUrl(): String {
-        return prefs.getString(KEY_SERVER_URL, DEFAULT_SERVER_URL) ?: DEFAULT_SERVER_URL
-    }
-
-    fun setServerUrl(url: String) {
-        val clean = url.trim().trimEnd('/')
-        prefs.edit().putString(KEY_SERVER_URL, clean).apply()
-        _serverUrlFlow.value = clean
+        return BuildConfig.BACKEND_BASE_URL
     }
 
     fun getAuthToken(): String? {

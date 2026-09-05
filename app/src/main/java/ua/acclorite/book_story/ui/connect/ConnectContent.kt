@@ -51,12 +51,6 @@ fun ConnectContent(
     state: ConnectState,
     onEvent: (ConnectEvent) -> Unit
 ) {
-    // Dialog for Server Settings
-    ConnectServerDialog(
-        state = state,
-        onEvent = onEvent
-    )
-
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.surface,

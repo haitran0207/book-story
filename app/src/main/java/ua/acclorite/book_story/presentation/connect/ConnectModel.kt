@@ -65,7 +65,6 @@ class ConnectModel @Inject constructor(
         _state.update {
             it.copy(
                 serverUrl = serverUrl,
-                tempServerUrlInput = serverUrl,
                 isLoggedIn = isLoggedIn,
                 username = username,
                 email = email,
@@ -117,39 +116,6 @@ class ConnectModel @Inject constructor(
                         _state.update { it.copy(registerLastName = event.value) }
                     }
 
-                    is ConnectEvent.OnShowServerDialog -> {
-                        _state.update {
-                            it.copy(
-                                showServerDialog = event.show,
-                                tempServerUrlInput = if (event.show) it.serverUrl else it.tempServerUrlInput
-                            )
-                        }
-                    }
-
-                    is ConnectEvent.OnTempServerUrlChange -> {
-                        _state.update { it.copy(tempServerUrlInput = event.url) }
-                    }
-
-                    is ConnectEvent.OnSaveServerUrl -> {
-                        val newUrl = _state.value.tempServerUrlInput.trim().trimEnd('/')
-                        if (newUrl.isNotBlank()) {
-                            connectPreferences.setServerUrl(newUrl)
-                            _state.update {
-                                it.copy(
-                                    serverUrl = newUrl,
-                                    showServerDialog = false,
-                                    serverStatus = null,
-                                    serverStatusMessage = null
-                                )
-                            }
-                            _effects.emit(ConnectEffect.ShowToast("Server URL updated: $newUrl"))
-                        }
-                    }
-
-                    is ConnectEvent.OnTestConnection -> {
-                        testServerConnection()
-                    }
-
                     is ConnectEvent.OnSubmitLogin -> {
                         performLogin()
                     }
@@ -176,53 +142,6 @@ class ConnectModel @Inject constructor(
                 }
             }
         }
-    }
-
-    private suspend fun testServerConnection() {
-        val serverUrl = _state.value.serverUrl
-        if (serverUrl.isBlank()) {
-            _effects.emit(ConnectEffect.ShowToast("Please enter a valid Server URL"))
-            return
-        }
-
-        _state.update {
-            it.copy(
-                serverStatus = ServerStatus.TESTING,
-                serverStatusMessage = "Connecting to $serverUrl..."
-            )
-        }
-
-        val result = apiClient.pingServer(serverUrl)
-        result.fold(
-            onSuccess = { reachable ->
-                if (reachable) {
-                    _state.update {
-                        it.copy(
-                            serverStatus = ServerStatus.CONNECTED,
-                            serverStatusMessage = "Server online ($serverUrl)"
-                        )
-                    }
-                    _effects.emit(ConnectEffect.ShowToast("Server is reachable!"))
-                } else {
-                    _state.update {
-                        it.copy(
-                            serverStatus = ServerStatus.DISCONNECTED,
-                            serverStatusMessage = "Server unreachable"
-                        )
-                    }
-                    _effects.emit(ConnectEffect.ShowToast("Cannot reach server at $serverUrl"))
-                }
-            },
-            onFailure = { err ->
-                _state.update {
-                    it.copy(
-                        serverStatus = ServerStatus.DISCONNECTED,
-                        serverStatusMessage = "Connection failed: ${err.message}"
-                    )
-                }
-                _effects.emit(ConnectEffect.ShowToast("Connection error: ${err.message}"))
-            }
-        )
     }
 
     private suspend fun performLogin() {

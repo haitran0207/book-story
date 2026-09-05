@@ -7,6 +7,7 @@
 package ua.acclorite.book_story.presentation.connect
 
 import androidx.compose.runtime.Immutable
+import ua.acclorite.book_story.BuildConfig
 import ua.acclorite.book_story.data.remote.model.RemoteBookDto
 
 enum class AuthTab {
@@ -22,7 +23,7 @@ enum class ServerStatus {
 
 @Immutable
 data class ConnectState(
-    val serverUrl: String = "",
+    val serverUrl: String = BuildConfig.BACKEND_BASE_URL,
     val isLoggedIn: Boolean = false,
     val username: String? = null,
     val email: String? = null,
@@ -43,8 +44,6 @@ data class ConnectState(
     val isLoading: Boolean = false,
     val serverStatus: ServerStatus? = null,
     val serverStatusMessage: String? = null,
-    val showServerDialog: Boolean = false,
-    val tempServerUrlInput: String = "",
 
     // Books Catalog
     val remoteBooks: List<RemoteBookDto> = emptyList(),
