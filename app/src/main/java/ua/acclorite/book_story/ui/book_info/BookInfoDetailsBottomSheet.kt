@@ -122,6 +122,16 @@ fun BookInfoDetailsBottomSheet(
                     editable = false
                 )
             }
+
+            if (book.tags.isNotEmpty()) {
+                item {
+                    BookInfoDetailsBottomSheetItem(
+                        label = stringResource(id = R.string.tags_tab),
+                        text = book.tags.joinToString(", "),
+                        editable = false
+                    )
+                }
+            }
         }
     }
 }

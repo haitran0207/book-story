@@ -6,6 +6,8 @@
 
 package ua.acclorite.book_story.presentation.library
 
+import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,20 +25,26 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import ua.acclorite.book_story.data.model.file.CachedFile
+import ua.acclorite.book_story.data.model.file.CachedFileCompat
+import ua.acclorite.book_story.data.parser.file.FileParser
 import ua.acclorite.book_story.domain.use_case.book.DeleteBookUseCase
 import ua.acclorite.book_story.domain.use_case.book.SearchBooksUseCase
 import ua.acclorite.book_story.domain.use_case.book.UpdateBookUseCase
 import ua.acclorite.book_story.presentation.browse.BrowseScreen
 import ua.acclorite.book_story.presentation.history.HistoryScreen
 import ua.acclorite.book_story.presentation.library.model.SelectableBook
+import java.io.File
 import javax.inject.Inject
 import kotlin.coroutines.coroutineContext
 
 @HiltViewModel
 class LibraryModel @Inject constructor(
+    private val application: Application,
     private val updateBookUseCase: UpdateBookUseCase,
     private val searchBooksUseCase: SearchBooksUseCase,
-    private val deleteBookUseCase: DeleteBookUseCase
+    private val deleteBookUseCase: DeleteBookUseCase,
+    private val fileParser: FileParser
 ) : ViewModel() {
 
     private val mutex = Mutex()
@@ -88,10 +96,42 @@ class LibraryModel @Inject constructor(
                         }
 
                         ensureActive()
-                        val books = searchBooksUseCase(
+                        val rawBooks = searchBooksUseCase(
                             if (_state.value.showSearch) _state.value.searchQuery
                             else ""
-                        ).map { book -> SelectableBook(book, false) }
+                        )
+
+                        val populatedBooks = rawBooks.map { book ->
+                            if (book.tags.isEmpty() && book.filePath.isNotBlank()) {
+                                try {
+                                    val file = File(book.filePath)
+                                    if (file.exists() && file.canRead()) {
+                                        val cachedFile = CachedFileCompat.fromUri(
+                                            context = application,
+                                            uri = Uri.fromFile(file),
+                                            builder = CachedFileCompat.build(
+                                                name = file.name,
+                                                path = file.path,
+                                                size = file.length(),
+                                                lastModified = file.lastModified(),
+                                                isDirectory = file.isDirectory
+                                            )
+                                        )
+                                        val parsed = fileParser.parse(cachedFile)
+                                        if (parsed != null && parsed.tags.isNotEmpty()) {
+                                            val updated = book.copy(tags = parsed.tags)
+                                            updateBookUseCase(updated)
+                                            return@map updated
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    // ignore error
+                                }
+                            }
+                            book
+                        }
+
+                        val books = populatedBooks.map { book -> SelectableBook(book, false) }
                         _state.update {
                             it.copy(
                                 books = books,
@@ -323,6 +363,22 @@ class LibraryModel @Inject constructor(
                     _state.update {
                         it.copy(
                             allBooksFilter = event.filter
+                        )
+                    }
+                }
+
+                is LibraryEvent.OnTagsStatusFilterChange -> {
+                    _state.update {
+                        it.copy(
+                            tagsStatusFilter = event.filter
+                        )
+                    }
+                }
+
+                is LibraryEvent.OnTagFilterChange -> {
+                    _state.update {
+                        it.copy(
+                            selectedTag = event.tag
                         )
                     }
                 }

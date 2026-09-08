@@ -16,6 +16,8 @@ import ua.acclorite.book_story.presentation.library.model.SelectableBook
 data class LibraryState(
     val books: List<SelectableBook> = emptyList(),
     val allBooksFilter: AllBooksFilter = AllBooksFilter.ALL,
+    val tagsStatusFilter: AllBooksFilter = AllBooksFilter.ALL,
+    val selectedTag: String? = null,
 
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,

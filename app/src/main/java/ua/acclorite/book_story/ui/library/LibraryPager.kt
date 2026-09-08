@@ -29,6 +29,8 @@ import ua.acclorite.book_story.ui.theme.DefaultTransition
 fun LibraryPager(
     books: List<SelectableBook>,
     allBooksFilter: AllBooksFilter = AllBooksFilter.ALL,
+    tagsStatusFilter: AllBooksFilter = AllBooksFilter.ALL,
+    selectedTag: String? = null,
     pagerState: PagerState,
     categories: List<Category>,
     showDefaultCategory: Boolean,
@@ -46,6 +48,8 @@ fun LibraryPager(
     isRefreshing: Boolean,
     selectBook: (LibraryEvent.OnSelectBook) -> Unit,
     onAllBooksFilterChange: (LibraryEvent.OnAllBooksFilterChange) -> Unit,
+    onTagsStatusFilterChange: (LibraryEvent.OnTagsStatusFilterChange) -> Unit,
+    onTagFilterChange: (LibraryEvent.OnTagFilterChange) -> Unit,
     navigateToBrowse: (LibraryEvent.OnNavigateToBrowse) -> Unit,
     navigateToBookInfo: (LibraryEvent.OnNavigateToBookInfo) -> Unit,
     navigateToReader: (LibraryEvent.OnNavigateToReader) -> Unit,
@@ -57,7 +61,9 @@ fun LibraryPager(
         sortOrder,
         sortOrderDescending,
         showDefaultCategory,
-        allBooksFilter
+        allBooksFilter,
+        tagsStatusFilter,
+        selectedTag
     ) {
         fun List<SelectableBook>.sortBooks(
             librarySortOrder: LibrarySortOrder,
@@ -133,7 +139,34 @@ fun LibraryPager(
                 }
             )
 
-            // 4. Custom Categories (id > 0)
+            // 4. Tags Tab (id = -4)
+            val tagsCategory = categories.find { it.id == -4 }
+            val filteredTagsBooks = books.filter { book ->
+                val matchesTag = if (selectedTag.isNullOrBlank()) {
+                    true
+                } else {
+                    book.data.tags.any { it.equals(selectedTag, ignoreCase = true) }
+                }
+                val matchesStatus = when (tagsStatusFilter) {
+                    AllBooksFilter.ALL -> true
+                    AllBooksFilter.NOT_STARTED -> book.data.progress == 0f && book.data.lastOpened == null
+                    AllBooksFilter.PROCESSING -> (book.data.progress > 0f || book.data.lastOpened != null) && book.data.progress < 1f
+                    AllBooksFilter.COMPLETED -> book.data.progress >= 1f
+                }
+                matchesTag && matchesStatus
+            }
+            categorizedBooks.add(
+                if (perCategorySort && tagsCategory != null) {
+                    filteredTagsBooks.sortBooks(
+                        tagsCategory.sortOrder,
+                        tagsCategory.sortOrderDescending
+                    )
+                } else {
+                    filteredTagsBooks
+                }
+            )
+
+            // 5. Custom Categories (id > 0)
             categories
                 .filter { it.id > 0 }
                 .sortedBy { it.order }
@@ -176,6 +209,15 @@ fun LibraryPager(
         }
 
         val isAllBooksTab = index == 1
+        val isTagsTab = index == 3
+
+        val allAvailableTags = remember(books) {
+            books.flatMap { it.data.tags }
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .distinctBy { it.lowercase() }
+                .sortedWith(String.CASE_INSENSITIVE_ORDER)
+        }
 
         val content = @Composable {
             Box(modifier = Modifier.fillMaxSize()) {
@@ -234,6 +276,23 @@ fun LibraryPager(
                     selectedFilter = allBooksFilter,
                     onFilterSelected = { filter ->
                         onAllBooksFilterChange(LibraryEvent.OnAllBooksFilterChange(filter))
+                    }
+                )
+                Box(modifier = Modifier.weight(1f)) {
+                    content()
+                }
+            }
+        } else if (isTagsTab) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                TagsFilterChips(
+                    availableTags = allAvailableTags,
+                    selectedTag = selectedTag,
+                    selectedStatus = tagsStatusFilter,
+                    onTagSelected = { tag ->
+                        onTagFilterChange(LibraryEvent.OnTagFilterChange(tag))
+                    },
+                    onStatusSelected = { status ->
+                        onTagsStatusFilterChange(LibraryEvent.OnTagsStatusFilterChange(status))
                     }
                 )
                 Box(modifier = Modifier.weight(1f)) {

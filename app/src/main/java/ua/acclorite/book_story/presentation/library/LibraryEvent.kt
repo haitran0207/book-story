@@ -71,4 +71,12 @@ sealed class LibraryEvent {
     data class OnAllBooksFilterChange(
         val filter: ua.acclorite.book_story.presentation.library.model.AllBooksFilter
     ) : LibraryEvent()
+
+    data class OnTagsStatusFilterChange(
+        val filter: ua.acclorite.book_story.presentation.library.model.AllBooksFilter
+    ) : LibraryEvent()
+
+    data class OnTagFilterChange(
+        val tag: String?
+    ) : LibraryEvent()
 }

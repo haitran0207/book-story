@@ -127,6 +127,7 @@
     <string name="process_tab">Process</string>
     <string name="all_books_tab">All Book</string>
     <string name="completed_tab">Completed</string>
+    <string name="tags_tab">Tags</string>
     <string name="general_tab">General</string>
     <string name="display_tab">Display</string>
     <string name="color_tab">Colors</string>

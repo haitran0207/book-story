@@ -11,9 +11,10 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
 import ua.acclorite.book_story.data.converter.CategoryConverter
+import ua.acclorite.book_story.data.converter.TagsConverter
 
 @Entity
-@TypeConverters(CategoryConverter::class)
+@TypeConverters(CategoryConverter::class, TagsConverter::class)
 data class BookEntity(
     @PrimaryKey(true) val id: Int = 0,
     val title: String,
@@ -24,5 +25,6 @@ data class BookEntity(
     val scrollOffset: Int,
     val progress: Float,
     val image: String? = null,
-    @ColumnInfo(defaultValue = "[]") val categories: List<Int>
+    @ColumnInfo(defaultValue = "[]") val categories: List<Int>,
+    @ColumnInfo(defaultValue = "[]") val tags: List<String> = emptyList()
 )

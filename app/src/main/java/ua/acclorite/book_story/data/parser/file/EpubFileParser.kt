@@ -63,6 +63,60 @@ class EpubFileParser @Inject constructor() : FileParser {
                         }
                     }
 
+                    val tags = mutableListOf<String>()
+
+                    // 1. dc:subject elements
+                    document.select("metadata > dc|subject, metadata > subject, metadata > dc\\:subject").forEach { elem ->
+                        val text = elem.text().trim()
+                        if (text.isNotBlank()) {
+                            text.split(',', ';').forEach { tag ->
+                                val clean = tag.trim()
+                                if (clean.isNotBlank()) {
+                                    tags.add(clean)
+                                }
+                            }
+                        }
+                    }
+
+                    // 2. Calibre meta tags
+                    document.select("metadata > meta[name=calibre:tags]").forEach { elem ->
+                        val content = elem.attr("content").trim()
+                        if (content.isNotBlank()) {
+                            content.split(',', ';').forEach { tag ->
+                                val clean = tag.trim()
+                                if (clean.isNotBlank()) {
+                                    tags.add(clean)
+                                }
+                            }
+                        }
+                    }
+                    document.select("metadata > meta[property=calibre:tags]").forEach { elem ->
+                        val text = elem.text().trim()
+                        if (text.isNotBlank()) {
+                            text.split(',', ';').forEach { tag ->
+                                val clean = tag.trim()
+                                if (clean.isNotBlank()) {
+                                    tags.add(clean)
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. Schema keywords or meta keywords
+                    document.select("metadata > meta[property=schema:keywords], metadata > meta[name=keywords]").forEach { elem ->
+                        val text = elem.attr("content").ifBlank { elem.text() }.trim()
+                        if (text.isNotBlank()) {
+                            text.split(',', ';').forEach { tag ->
+                                val clean = tag.trim()
+                                if (clean.isNotBlank()) {
+                                    tags.add(clean)
+                                }
+                            }
+                        }
+                    }
+
+                    val distinctTags = tags.distinctBy { it.lowercase() }
+
                     book = Book(
                         title = title,
                         author = author,
@@ -73,6 +127,7 @@ class EpubFileParser @Inject constructor() : FileParser {
                         filePath = cachedFile.path,
                         lastOpened = null,
                         categories = emptyList(),
+                        tags = distinctTags,
                         coverImage = null
                     )
                 }

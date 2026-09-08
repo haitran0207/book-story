@@ -58,6 +58,8 @@ import ua.acclorite.book_story.ui.navigator.NavigatorIconButton
 fun LibraryTopBar(
     books: List<SelectableBook>,
     allBooksFilter: AllBooksFilter = AllBooksFilter.ALL,
+    tagsStatusFilter: AllBooksFilter = AllBooksFilter.ALL,
+    selectedTag: String? = null,
     selectedItemsCount: Int,
     hasSelectedItems: Boolean,
     showBookCount: Boolean,
@@ -84,13 +86,17 @@ fun LibraryTopBar(
     val processCategoryTitle = stringResource(id = R.string.process_tab)
     val allBooksCategoryTitle = stringResource(id = R.string.all_books_tab)
     val completedCategoryTitle = stringResource(id = R.string.completed_tab)
+    val tagsCategoryTitle = stringResource(id = R.string.tags_tab)
     val categoriesWithBooks = remember(
         books,
         categories,
         allBooksFilter,
+        tagsStatusFilter,
+        selectedTag,
         processCategoryTitle,
         allBooksCategoryTitle,
-        completedCategoryTitle
+        completedCategoryTitle,
+        tagsCategoryTitle
     ) {
         derivedStateOf {
             val list = mutableListOf<Pair<Category, List<SelectableBook>>>()
@@ -126,7 +132,26 @@ fun LibraryTopBar(
             val completedBooks = books.filter { it.data.progress >= 1f }
             list.add(completedCategory to completedBooks)
 
-            // 4. Custom Categories (id > 0)
+            // 4. Tags Tab (id = -4): all books with tags and status filter
+            val tagsCategory = categories.find { it.id == -4 }?.copy(title = tagsCategoryTitle)
+                ?: Category(id = -4, title = tagsCategoryTitle)
+            val filteredTagsBooks = books.filter { book ->
+                val matchesTag = if (selectedTag.isNullOrBlank()) {
+                    true
+                } else {
+                    book.data.tags.any { it.equals(selectedTag, ignoreCase = true) }
+                }
+                val matchesStatus = when (tagsStatusFilter) {
+                    AllBooksFilter.ALL -> true
+                    AllBooksFilter.NOT_STARTED -> book.data.progress == 0f && book.data.lastOpened == null
+                    AllBooksFilter.PROCESSING -> (book.data.progress > 0f || book.data.lastOpened != null) && book.data.progress < 1f
+                    AllBooksFilter.COMPLETED -> book.data.progress >= 1f
+                }
+                matchesTag && matchesStatus
+            }
+            list.add(tagsCategory to filteredTagsBooks)
+
+            // 5. Custom Categories (id > 0)
             categories.filter { it.id > 0 }.sortedBy { it.order }.forEach { category ->
                 list.add(category to books.filter { it.data.categories.any { catId -> catId == category.id } })
             }

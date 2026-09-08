@@ -54,6 +54,7 @@
     <string name="process_tab">Đang đọc</string>
     <string name="all_books_tab">Tất cả</string>
     <string name="completed_tab">Đã xong</string>
+    <string name="tags_tab">Thẻ</string>
     <string name="filter_all">Tất cả</string>
     <string name="filter_not_start">Chưa đọc</string>
     <string name="filter_processing">Đang đọc</string>

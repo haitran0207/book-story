@@ -46,6 +46,19 @@ class Fb2FileParser @Inject constructor() : FileParser {
                 this
             }
 
+            val tags = mutableListOf<String>()
+            document?.select("genre, keywords")?.forEach { elem ->
+                val text = elem.text().trim()
+                if (text.isNotBlank()) {
+                    text.split(',', ';').forEach { tag ->
+                        val clean = tag.trim()
+                        if (clean.isNotBlank()) {
+                            tags.add(clean)
+                        }
+                    }
+                }
+            }
+
             Book(
                 title = title,
                 author = author,
@@ -56,6 +69,7 @@ class Fb2FileParser @Inject constructor() : FileParser {
                 filePath = cachedFile.path,
                 lastOpened = null,
                 categories = emptyList(),
+                tags = tags.distinctBy { it.lowercase() },
                 coverImage = null
             )
         } catch (e: Exception) {

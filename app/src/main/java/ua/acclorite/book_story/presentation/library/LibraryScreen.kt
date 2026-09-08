@@ -90,7 +90,7 @@ object LibraryScreen : Screen, Parcelable {
         val pagerState = rememberPagerState(
             initialPage = initialPage
         ) {
-            3 + settingsState.value.categories.count { it.id > 0 }
+            4 + settingsState.value.categories.count { it.id > 0 }
         }
         DisposableEffect(Unit) { onDispose { initialPage = pagerState.currentPage } }
 
@@ -108,6 +108,8 @@ object LibraryScreen : Screen, Parcelable {
         LibraryContent(
             books = state.value.books,
             allBooksFilter = state.value.allBooksFilter,
+            tagsStatusFilter = state.value.tagsStatusFilter,
+            selectedTag = state.value.selectedTag,
             selectedItemsCount = state.value.selectedItemsCount,
             hasSelectedItems = state.value.hasSelectedItems,
             titlePosition = settings.libraryTitlePosition.value,
@@ -139,6 +141,8 @@ object LibraryScreen : Screen, Parcelable {
             changeSortOrderDescending = { settings.librarySortOrderDescending.update(it) },
             selectBook = screenModel::onEvent,
             onAllBooksFilterChange = screenModel::onEvent,
+            onTagsStatusFilterChange = screenModel::onEvent,
+            onTagFilterChange = screenModel::onEvent,
             searchVisibility = screenModel::onEvent,
             requestFocus = screenModel::onEvent,
             searchQueryChange = screenModel::onEvent,

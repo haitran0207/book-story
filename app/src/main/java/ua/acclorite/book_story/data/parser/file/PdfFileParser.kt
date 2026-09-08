@@ -35,6 +35,14 @@ class PdfFileParser @Inject constructor(
             }
             val description = document.documentInformation.subject
 
+            val tags = mutableListOf<String>()
+            document.documentInformation.keywords?.let { kw ->
+                kw.split(',', ';').forEach { tag ->
+                    val clean = tag.trim()
+                    if (clean.isNotBlank()) tags.add(clean)
+                }
+            }
+
             document.close()
 
             Book(
@@ -47,6 +55,7 @@ class PdfFileParser @Inject constructor(
                 filePath = cachedFile.path,
                 lastOpened = null,
                 categories = emptyList(),
+                tags = tags.distinctBy { it.lowercase() },
                 coverImage = null
             )
         } catch (e: Exception) {

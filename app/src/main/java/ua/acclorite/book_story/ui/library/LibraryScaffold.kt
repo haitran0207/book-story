@@ -31,6 +31,8 @@ import ua.acclorite.book_story.presentation.library.model.SelectableBook
 fun LibraryScaffold(
     books: List<SelectableBook>,
     allBooksFilter: AllBooksFilter = AllBooksFilter.ALL,
+    tagsStatusFilter: AllBooksFilter = AllBooksFilter.ALL,
+    selectedTag: String? = null,
     selectedItemsCount: Int,
     hasSelectedItems: Boolean,
     titlePosition: LibraryTitlePosition,
@@ -57,6 +59,8 @@ fun LibraryScaffold(
     searchVisibility: (LibraryEvent.OnSearchVisibility) -> Unit,
     selectBook: (LibraryEvent.OnSelectBook) -> Unit,
     onAllBooksFilterChange: (LibraryEvent.OnAllBooksFilterChange) -> Unit,
+    onTagsStatusFilterChange: (LibraryEvent.OnTagsStatusFilterChange) -> Unit,
+    onTagFilterChange: (LibraryEvent.OnTagFilterChange) -> Unit,
     requestFocus: (LibraryEvent.OnRequestFocus) -> Unit,
     searchQueryChange: (LibraryEvent.OnSearchQueryChange) -> Unit,
     search: (LibraryEvent.OnSearch) -> Unit,
@@ -78,6 +82,8 @@ fun LibraryScaffold(
             LibraryTopBar(
                 books = books,
                 allBooksFilter = allBooksFilter,
+                tagsStatusFilter = tagsStatusFilter,
+                selectedTag = selectedTag,
                 selectedItemsCount = selectedItemsCount,
                 hasSelectedItems = hasSelectedItems,
                 showBookCount = showBookCount,
@@ -111,6 +117,8 @@ fun LibraryScaffold(
             LibraryPager(
                 books = books,
                 allBooksFilter = allBooksFilter,
+                tagsStatusFilter = tagsStatusFilter,
+                selectedTag = selectedTag,
                 pagerState = pagerState,
                 categories = categories,
                 showDefaultCategory = showDefaultCategory,
@@ -128,6 +136,8 @@ fun LibraryScaffold(
                 isRefreshing = isRefreshing,
                 selectBook = selectBook,
                 onAllBooksFilterChange = onAllBooksFilterChange,
+                onTagsStatusFilterChange = onTagsStatusFilterChange,
+                onTagFilterChange = onTagFilterChange,
                 navigateToBrowse = navigateToBrowse,
                 navigateToReader = navigateToReader,
                 navigateToBookInfo = navigateToBookInfo
