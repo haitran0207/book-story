@@ -19,6 +19,7 @@ class FileParserImpl @Inject constructor(
     private val epubFileParser: EpubFileParser,
     private val fb2FileParser: Fb2FileParser,
     private val htmlFileParser: HtmlFileParser,
+    private val mobiFileParser: MobiFileParser
 ) : FileParser {
 
     override suspend fun parse(cachedFile: CachedFile): Book? {
@@ -35,6 +36,10 @@ class FileParserImpl @Inject constructor(
 
             ".epub" -> {
                 epubFileParser.parse(cachedFile)
+            }
+
+            ".mobi", ".azw", ".azw3", ".prc" -> {
+                mobiFileParser.parse(cachedFile)
             }
 
             ".txt" -> {

@@ -415,6 +415,9 @@ class ReaderModel @Inject constructor(
                 }
 
                 is ReaderEvent.OnStartReadAloud -> {
+                    _state.update {
+                        it.copy(showMenu = false)
+                    }
                     startReadingLoop()
                 }
                 is ReaderEvent.OnPauseReadAloud -> {
@@ -438,6 +441,9 @@ class ReaderModel @Inject constructor(
                     )
                 }
                 is ReaderEvent.OnResumeReadAloud -> {
+                    _state.update {
+                        it.copy(showMenu = false)
+                    }
                     startReadingLoop(_state.value.readAloudState.currentReadingIndex)
                 }
                 is ReaderEvent.OnStopReadAloud -> {

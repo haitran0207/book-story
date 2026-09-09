@@ -1,3 +1,5 @@
+import java.io.ByteArrayOutputStream
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -14,13 +16,55 @@ android {
     namespace = "ua.acclorite.book_story"
     compileSdk = 36
 
+    fun getGitVersionName(): String {
+        val prop = project.findProperty("versionName") as String?
+            ?: project.findProperty("appVersionName") as String?
+            ?: System.getenv("VERSION_NAME")
+            ?: System.getenv("APP_VERSION_NAME")
+        if (!prop.isNullOrBlank()) {
+            return prop.trim().removePrefix("v")
+        }
+        return try {
+            val tag = providers.exec {
+                commandLine("git", "describe", "--tags", "--abbrev=0")
+                isIgnoreExitValue = true
+            }.standardOutput.asText.get().trim()
+            if (tag.isNotEmpty() && !tag.contains("fatal")) {
+                tag.removePrefix("v")
+            } else {
+                "1.8.0"
+            }
+        } catch (e: Exception) {
+            "1.8.0"
+        }
+    }
+
+    fun getGitVersionCode(): Int {
+        val prop = project.findProperty("versionCode") as String?
+            ?: project.findProperty("appVersionCode") as String?
+            ?: System.getenv("VERSION_CODE")
+            ?: System.getenv("APP_VERSION_CODE")
+        if (!prop.isNullOrBlank()) {
+            return prop.trim().toIntOrNull() ?: 14
+        }
+        return try {
+            val countStr = providers.exec {
+                commandLine("git", "rev-list", "--count", "HEAD")
+                isIgnoreExitValue = true
+            }.standardOutput.asText.get().trim()
+            countStr.toIntOrNull() ?: 14
+        } catch (e: Exception) {
+            14
+        }
+    }
+
     // Default configuration
     defaultConfig {
         applicationId = "ua.acclorite.book_story"
         minSdk = 26
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.8.0"
+        versionCode = getGitVersionCode()
+        versionName = getGitVersionName()
 
         vectorDrawables {
             useSupportLibrary = true
@@ -117,6 +161,17 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "/META-INF/gradle/incremental.annotation.processors"
+        }
+    }
+
+    applicationVariants.all {
+        val variant = this
+        outputs.all {
+            val output = this as? com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            if (output != null) {
+                val flavor = variant.flavorName.ifEmpty { "standard" }
+                output.outputFileName = "bookstory-v${variant.versionName}-${flavor}-${variant.buildType.name}.apk"
+            }
         }
     }
 }

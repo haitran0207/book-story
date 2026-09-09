@@ -50,9 +50,17 @@ class CachedFile(
     val isDirectory: Boolean get() = builder?.isDirectory ?: queryParams.isDirectory
 
     fun canAccess(): Boolean {
+        if (builder != null) return true
         if (uri.scheme == "file" || (builder?.path != null && File(builder.path).exists())) {
             val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else builder?.path?.let { File(it) }
             if (file != null && file.exists() && file.canRead()) {
+                return true
+            }
+        }
+        val directPath = path
+        if (directPath.isNotBlank()) {
+            val file = File(directPath)
+            if (file.exists() && file.canRead()) {
                 return true
             }
         }
@@ -78,14 +86,15 @@ class CachedFile(
                 e.printStackTrace()
             }
         }
-        if (builder?.path != null) {
+        val directPath = builder?.path ?: path
+        if (directPath.isNotBlank()) {
             try {
-                val file = File(builder.path)
+                val file = File(directPath)
                 if (file.exists() && file.canRead()) {
                     return java.io.FileInputStream(file)
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                // fall through to contentResolver
             }
         }
         return try {
@@ -100,27 +109,33 @@ class CachedFile(
     fun listFiles(forEach: ((CachedFile) -> Unit)? = null): List<CachedFile> {
         if (!isDirectory || !canAccess()) return emptyList()
 
-        if (uri.scheme == "file" || (builder?.path != null && File(builder.path).isDirectory && File(builder.path).canRead())) {
-            val dir = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else File(builder!!.path!!)
-            val files = dir.listFiles()
-            if (files != null) {
-                val cachedFiles = mutableListOf<CachedFile>()
-                files.forEach { file ->
-                    val queryFile = CachedFileCompat.fromUri(
-                        context = context,
-                        uri = Uri.fromFile(file),
-                        builder = CachedFileCompat.build(
-                            name = file.name,
-                            path = file.absolutePath,
-                            size = file.length(),
-                            lastModified = file.lastModified(),
-                            isDirectory = file.isDirectory
+        val directPath = if (uri.scheme == "file" && uri.path != null) uri.path else builder?.path ?: path
+        if (!directPath.isNullOrBlank()) {
+            val dir = File(directPath)
+            if (dir.isDirectory && dir.canRead()) {
+                val files = dir.listFiles()
+                if (files != null) {
+                    val cachedFiles = mutableListOf<CachedFile>()
+                    files.forEach { file ->
+                        if (file.name.equals("Android", ignoreCase = true) || file.name.startsWith(".")) {
+                            return@forEach
+                        }
+                        val queryFile = CachedFileCompat.fromUri(
+                            context = context,
+                            uri = Uri.fromFile(file),
+                            builder = CachedFileCompat.build(
+                                name = file.name,
+                                path = file.absolutePath,
+                                size = file.length(),
+                                lastModified = file.lastModified(),
+                                isDirectory = file.isDirectory
+                            )
                         )
-                    )
-                    forEach?.invoke(queryFile)
-                    cachedFiles.add(queryFile)
+                        forEach?.invoke(queryFile)
+                        cachedFiles.add(queryFile)
+                    }
+                    return cachedFiles
                 }
-                return cachedFiles
             }
         }
 
@@ -132,9 +147,21 @@ class CachedFile(
         val lastModifiedColumn = DocumentsContract.Document.COLUMN_LAST_MODIFIED
         val isDirectoryColumn = DocumentsContract.Document.COLUMN_MIME_TYPE
 
+        val docId = try {
+            if (DocumentsContract.isDocumentUri(context, uri)) {
+                DocumentsContract.getDocumentId(uri)
+            } else if (DocumentsContract.isTreeUri(uri)) {
+                DocumentsContract.getTreeDocumentId(uri)
+            } else {
+                DocumentsContract.getDocumentId(uri)
+            }
+        } catch (e: Exception) {
+            null
+        } ?: return emptyList()
+
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
             uri,
-            DocumentsContract.getDocumentId(uri)
+            docId
         )
 
         context.contentResolver.query(
@@ -224,14 +251,9 @@ class CachedFile(
      */
     private fun storeInCache(): File? {
         if (isDirectory) return null
-        if (uri.scheme == "file" && uri.path != null) {
-            val f = File(uri.path!!)
-            if (f.exists() && f.canRead()) {
-                return f
-            }
-        }
-        if (builder?.path != null) {
-            val f = File(builder.path)
+        val directPath = if (uri.scheme == "file" && uri.path != null) uri.path else builder?.path ?: path
+        if (!directPath.isNullOrBlank()) {
+            val f = File(directPath)
             if (f.exists() && f.canRead()) {
                 return f
             }

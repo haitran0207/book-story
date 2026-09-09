@@ -11,6 +11,10 @@ import kotlinx.collections.immutable.persistentListOf
 object ExtensionsData {
     val fileExtensions = persistentListOf(
         ".epub",
+        ".mobi",
+        ".azw",
+        ".azw3",
+        ".prc",
         ".pdf",
         ".fb2",
         ".txt",

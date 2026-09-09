@@ -23,7 +23,8 @@ class TextParserImpl @Inject constructor(
     // Document parser (HTML+Markdown)
     private val epubTextParser: EpubTextParser,
     private val htmlTextParser: HtmlTextParser,
-    private val xmlTextParser: XmlTextParser
+    private val xmlTextParser: XmlTextParser,
+    private val mobiTextParser: MobiTextParser
 ) : TextParser {
 
     override suspend fun parse(cachedFile: CachedFile): List<ReaderText> {
@@ -41,6 +42,10 @@ class TextParserImpl @Inject constructor(
 
                 ".epub" -> {
                     epubTextParser.parse(cachedFile)
+                }
+
+                ".mobi", ".azw", ".azw3", ".prc" -> {
+                    mobiTextParser.parse(cachedFile)
                 }
 
                 ".txt" -> {

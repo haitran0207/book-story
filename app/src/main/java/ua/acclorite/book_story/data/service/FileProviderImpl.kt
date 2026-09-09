@@ -53,23 +53,50 @@ class FileProviderImpl @Inject constructor(
     }
 
     override fun getStorageFiles(): Result<List<CachedFile>> = runCatching {
-        application.contentResolver.persistedUriPermissions.mapNotNull { permission ->
+        val safStorages = application.contentResolver.persistedUriPermissions.mapNotNull { permission ->
             val storage = CachedFileCompat.fromUri(
                 application,
                 permission.uri
             )
             if (!storage.isDirectory) return@mapNotNull null
-
             storage
-        }.let { storages ->
-            storages.filter { storage ->
-                storages.none {
-                    it.path != storage.path && storage.path.startsWith(
-                        it.path,
-                        ignoreCase = true
-                    )
-                }
-            }
         }
+
+        val standardDirs = try {
+            val externalStorage = android.os.Environment.getExternalStorageDirectory()
+            listOfNotNull(
+                externalStorage,
+                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
+                java.io.File(externalStorage, "Books"),
+                java.io.File(externalStorage, "eBooks"),
+                java.io.File(externalStorage, "Kindle"),
+                java.io.File(externalStorage, "Calibre")
+            ).filter { it.exists() && it.isDirectory }.map { dir ->
+                CachedFileCompat.fromUri(
+                    application,
+                    android.net.Uri.fromFile(dir),
+                    CachedFileCompat.build(
+                        name = dir.name,
+                        path = dir.absolutePath,
+                        size = dir.length(),
+                        lastModified = dir.lastModified(),
+                        isDirectory = true
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+
+        val allStorages = safStorages + standardDirs
+        allStorages.filter { storage ->
+            allStorages.none { other ->
+                other.path != storage.path && storage.path.startsWith(
+                    other.path,
+                    ignoreCase = true
+                )
+            }
+        }.distinctBy { it.path.lowercase() }
     }
 }

@@ -18,7 +18,8 @@ class CoverParserImpl @Inject constructor(
     private val txtCoverParser: TxtCoverParser,
     private val pdfCoverParser: PdfCoverParser,
     private val fb2CoverParser: Fb2CoverParser,
-    private val htmlCoverParser: HtmlCoverParser
+    private val htmlCoverParser: HtmlCoverParser,
+    private val mobiCoverParser: MobiCoverParser
 ) : CoverParser {
 
     override suspend fun parse(cachedFile: CachedFile): CoverImage? {
@@ -35,6 +36,10 @@ class CoverParserImpl @Inject constructor(
 
             ".epub" -> {
                 epubCoverParser.parse(cachedFile)
+            }
+
+            ".mobi", ".azw", ".azw3", ".prc" -> {
+                mobiCoverParser.parse(cachedFile)
             }
 
             ".txt" -> {
