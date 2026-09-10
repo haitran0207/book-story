@@ -48,7 +48,12 @@ class FileSystemRepositoryImpl @Inject constructor(
                     )
                 }.flatten()
 
-                val mediaStoreFiles = queryMediaStoreFiles(query, existingFiles)
+                val hasCustomAddedFolders = application.contentResolver.persistedUriPermissions.isNotEmpty()
+                val mediaStoreFiles = if (!hasCustomAddedFolders) {
+                    queryMediaStoreFiles(query, existingFiles)
+                } else {
+                    emptyList()
+                }
 
                 (filesFromStorage + mediaStoreFiles).distinctBy { it.path.lowercase() }
             }

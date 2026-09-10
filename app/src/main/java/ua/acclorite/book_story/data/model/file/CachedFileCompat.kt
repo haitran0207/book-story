@@ -14,18 +14,7 @@ object CachedFileCompat {
     fun fromUri(context: Context, uri: Uri, builder: CachedFileBuilder? = null): CachedFile {
         return CachedFile(
             context = context,
-            uri = when {
-                DocumentsContract.isDocumentUri(context, uri) -> uri
-
-                DocumentsContract.isTreeUri(uri) -> {
-                    DocumentsContract.buildDocumentUriUsingTree(
-                        uri,
-                        DocumentsContract.getTreeDocumentId(uri)
-                    )
-                }
-
-                else -> uri
-            },
+            uri = uri,
             builder = builder
         )
     }

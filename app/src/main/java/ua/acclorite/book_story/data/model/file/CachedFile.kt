@@ -51,25 +51,16 @@ class CachedFile(
 
     fun canAccess(): Boolean {
         if (builder != null) return true
-        if (uri.scheme == "file" || (builder?.path != null && File(builder.path).exists())) {
-            val file = if (uri.scheme == "file" && uri.path != null) File(uri.path!!) else builder?.path?.let { File(it) }
-            if (file != null && file.exists() && file.canRead()) {
-                return true
-            }
-        }
-        val directPath = path
-        if (directPath.isNotBlank()) {
+        val directPath = if (uri.scheme == "file" && uri.path != null) uri.path else builder?.path ?: path
+        if (!directPath.isNullOrBlank()) {
             val file = File(directPath)
             if (file.exists() && file.canRead()) {
                 return true
             }
         }
         return try {
-            context.contentResolver.query(uri, null, null, null, null)?.let {
-                it.close()
-                return true
-            }
-            throw Exception("Could not access URI: $uri")
+            val docFile = DocumentFileCompat.fromUri(context, uri)
+            docFile != null && docFile.canRead()
         } catch (e: Exception) {
             false
         }
@@ -107,7 +98,7 @@ class CachedFile(
     }
 
     fun listFiles(forEach: ((CachedFile) -> Unit)? = null): List<CachedFile> {
-        if (!isDirectory || !canAccess()) return emptyList()
+        if (!isDirectory) return emptyList()
 
         val directPath = if (uri.scheme == "file" && uri.path != null) uri.path else builder?.path ?: path
         if (!directPath.isNullOrBlank()) {
@@ -139,86 +130,37 @@ class CachedFile(
             }
         }
 
-        val cachedFiles = mutableListOf<CachedFile>()
+        return try {
+            val docFile = DocumentFileCompat.fromUri(context, uri) ?: return emptyList()
+            if (!docFile.isDirectory) return emptyList()
 
-        val nameColumn = DocumentsContract.Document.COLUMN_DISPLAY_NAME
-        val uriColumn = DocumentsContract.Document.COLUMN_DOCUMENT_ID
-        val sizeColumn = DocumentsContract.Document.COLUMN_SIZE
-        val lastModifiedColumn = DocumentsContract.Document.COLUMN_LAST_MODIFIED
-        val isDirectoryColumn = DocumentsContract.Document.COLUMN_MIME_TYPE
-
-        val docId = try {
-            if (DocumentsContract.isDocumentUri(context, uri)) {
-                DocumentsContract.getDocumentId(uri)
-            } else if (DocumentsContract.isTreeUri(uri)) {
-                DocumentsContract.getTreeDocumentId(uri)
-            } else {
-                DocumentsContract.getDocumentId(uri)
-            }
-        } catch (e: Exception) {
-            null
-        } ?: return emptyList()
-
-        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
-            uri,
-            docId
-        )
-
-        context.contentResolver.query(
-            childrenUri,
-            arrayOf(
-                nameColumn,
-                uriColumn,
-                sizeColumn,
-                lastModifiedColumn,
-                isDirectoryColumn
-            ),
-            null, null, null
-        )?.use { cursor ->
-            if (cursor.count == 0) {
-                return emptyList()
-            }
-
-            try {
-                val nameIndex = cursor.getColumnIndexOrThrow(nameColumn)
-                val uriIndex = cursor.getColumnIndexOrThrow(uriColumn)
-                val sizeIndex = cursor.getColumnIndexOrThrow(sizeColumn)
-                val lastModifiedIndex = cursor.getColumnIndexOrThrow(lastModifiedColumn)
-                val isDirectoryIndex = cursor.getColumnIndexOrThrow(isDirectoryColumn)
-
-                while (cursor.moveToNext()) {
-                    val nameQuery = cursor.getString(nameIndex)
-                    val pathQuery = "$path/$nameQuery"
-                    val uriQuery = DocumentsContract.buildDocumentUriUsingTree(
-                        uri,
-                        cursor.getString(uriIndex)
-                    )
-                    val sizeQuery = cursor.getLong(sizeIndex)
-                    val lastModifiedQuery = cursor.getLong(lastModifiedIndex)
-                    val isDirectoryQuery = cursor.getString(isDirectoryIndex) ==
-                            DocumentsContract.Document.MIME_TYPE_DIR
-
-                    val queryFile = CachedFileCompat.fromUri(
-                        context = context,
-                        uri = uriQuery,
-                        builder = CachedFileCompat.build(
-                            name = nameQuery,
-                            path = pathQuery,
-                            size = sizeQuery,
-                            lastModified = lastModifiedQuery,
-                            isDirectory = isDirectoryQuery
-                        )
-                    )
-
-                    forEach?.invoke(queryFile)
-                    cachedFiles.add(queryFile)
+            val children = docFile.listFiles()
+            val cachedFiles = mutableListOf<CachedFile>()
+            for (child in children) {
+                val childName = child.name ?: continue
+                if (childName.equals("Android", ignoreCase = true) || childName.startsWith(".")) {
+                    continue
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
+                val childAbsPath = child.getAbsolutePath(context).ifBlank { "$path/$childName" }
+                val queryFile = CachedFileCompat.fromUri(
+                    context = context,
+                    uri = child.uri,
+                    builder = CachedFileCompat.build(
+                        name = childName,
+                        path = childAbsPath,
+                        size = child.length(),
+                        lastModified = child.lastModified(),
+                        isDirectory = child.isDirectory
+                    )
+                )
+                forEach?.invoke(queryFile)
+                cachedFiles.add(queryFile)
             }
+            cachedFiles
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
         }
-
-        return cachedFiles
     }
 
     fun walk(
@@ -227,16 +169,55 @@ class CachedFile(
     ): List<CachedFile> {
         val cachedFiles = mutableListOf<CachedFile>()
 
-        listFiles {
-            when (it.isDirectory) {
-                false -> {
-                    forEach?.invoke(it)
-                    cachedFiles.add(it)
-                }
+        // 1. If direct java.io.File access is available, use fast File.walk()
+        val directPath = if (uri.scheme == "file" && uri.path != null) uri.path else builder?.path ?: path
+        if (!directPath.isNullOrBlank()) {
+            val dir = File(directPath)
+            if (dir.isDirectory && dir.canRead()) {
+                try {
+                    dir.walkTopDown()
+                        .onEnter { folder ->
+                            !folder.name.equals("Android", ignoreCase = true) && !folder.name.startsWith(".")
+                        }
+                        .forEach { file ->
+                            if (file.absolutePath == dir.absolutePath) return@forEach
+                            if (file.name.startsWith(".")) return@forEach
 
+                            val isDir = file.isDirectory
+                            if (!isDir || includeDirectories) {
+                                val cached = CachedFileCompat.fromUri(
+                                    context = context,
+                                    uri = Uri.fromFile(file),
+                                    builder = CachedFileCompat.build(
+                                        name = file.name,
+                                        path = file.absolutePath,
+                                        size = file.length(),
+                                        lastModified = file.lastModified(),
+                                        isDirectory = isDir
+                                    )
+                                )
+                                forEach?.invoke(cached)
+                                cachedFiles.add(cached)
+                            }
+                        }
+                    return cachedFiles
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    cachedFiles.clear()
+                }
+            }
+        }
+
+        // 2. Otherwise recursively traverse using listFiles() (which uses DocumentFileCompat)
+        listFiles { child ->
+            when (child.isDirectory) {
+                false -> {
+                    forEach?.invoke(child)
+                    cachedFiles.add(child)
+                }
                 true -> {
-                    if (includeDirectories) cachedFiles.add(it)
-                    cachedFiles.addAll(it.walk(includeDirectories, forEach))
+                    if (includeDirectories) cachedFiles.add(child)
+                    cachedFiles.addAll(child.walk(includeDirectories, forEach))
                 }
             }
         }
@@ -289,107 +270,25 @@ class CachedFile(
             )
         }
 
-        val nameColumn = DocumentsContract.Document.COLUMN_DISPLAY_NAME
-        val sizeColumn = DocumentsContract.Document.COLUMN_SIZE
-        val lastModifiedColumn = DocumentsContract.Document.COLUMN_LAST_MODIFIED
-        val isDirectoryColumn = DocumentsContract.Document.COLUMN_MIME_TYPE
-
-        val projection = mutableListOf<String>().apply {
-            if (builder?.name == null) add(nameColumn)
-            if (builder?.size == null) add(sizeColumn)
-            if (builder?.lastModified == null) add(lastModifiedColumn)
-            if (builder?.isDirectory == null) add(isDirectoryColumn)
-        }
-
-        if (projection.isEmpty() && builder != null) {
-            return QueryParams(
-                name = builder.name!!,
-                size = builder.size!!,
-                lastModified = builder.lastModified!!,
-                isDirectory = builder.isDirectory!!
-            )
-        }
-
-        context.contentResolver.query(
-            uri,
-            projection.toTypedArray(),
-            null, null, null
-        )?.use { cursor ->
-            try {
-                if (cursor.moveToFirst()) {
-                    val queryResult = mutableMapOf<String, Any?>()
-
-                    projection.forEach { column ->
-                        when (column) {
-                            nameColumn -> {
-                                if (builder?.name == null) {
-                                    queryResult[column] = cursor.getString(
-                                        cursor.getColumnIndexOrThrow(column)
-                                    )
-                                }
-                            }
-
-                            sizeColumn -> {
-                                if (builder?.size == null) {
-                                    queryResult[column] = cursor.getLong(
-                                        cursor.getColumnIndexOrThrow(column)
-                                    )
-                                }
-                            }
-
-                            lastModifiedColumn -> {
-                                if (builder?.lastModified == null) {
-                                    queryResult[column] = cursor.getLong(
-                                        cursor.getColumnIndexOrThrow(column)
-                                    )
-                                }
-                            }
-
-                            isDirectoryColumn -> {
-                                if (builder?.isDirectory == null) {
-                                    queryResult[column] = cursor.getString(
-                                        cursor.getColumnIndexOrThrow(column)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    val nameQuery = queryResult.getOrElse(nameColumn) {
-                        builder?.name
-                    } as String
-
-                    val sizeQuery = queryResult.getOrElse(sizeColumn) {
-                        builder?.size
-                    } as Long
-
-                    val lastModifiedQuery = queryResult.getOrElse(lastModifiedColumn) {
-                        builder?.lastModified
-                    } as Long
-
-                    val isDirectoryQuery = when (queryResult[isDirectoryColumn]) {
-                        DocumentsContract.Document.MIME_TYPE_DIR -> true
-                        null -> builder?.isDirectory!!
-                        else -> false
-                    }
-
-                    return QueryParams(
-                        name = nameQuery,
-                        size = sizeQuery,
-                        lastModified = lastModifiedQuery,
-                        isDirectory = isDirectoryQuery
-                    )
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
+        try {
+            val docFile = DocumentFileCompat.fromUri(context, uri)
+            if (docFile != null) {
+                return QueryParams(
+                    name = builder?.name ?: docFile.name ?: "unknown_${UUID.randomUUID()}",
+                    size = builder?.size ?: docFile.length(),
+                    lastModified = builder?.lastModified ?: docFile.lastModified(),
+                    isDirectory = builder?.isDirectory ?: docFile.isDirectory
+                )
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
 
         return QueryParams(
-            name = "unknown_${UUID.randomUUID()}",
-            size = 0,
-            lastModified = 0,
-            isDirectory = false
+            name = builder?.name ?: "unknown_${UUID.randomUUID()}",
+            size = builder?.size ?: 0L,
+            lastModified = builder?.lastModified ?: 0L,
+            isDirectory = builder?.isDirectory ?: false
         )
     }
 
@@ -400,7 +299,11 @@ class CachedFile(
         if (builder?.path != null) {
             return builder.path.trimEnd('/')
         }
-        val tempFile = DocumentFileCompat.fromUri(context, uri)
-        return tempFile?.getAbsolutePath(context)?.trimEnd('/') ?: ""
+        return try {
+            val tempFile = DocumentFileCompat.fromUri(context, uri)
+            tempFile?.getAbsolutePath(context)?.trimEnd('/') ?: ""
+        } catch (e: Exception) {
+            ""
+        }
     }
 }

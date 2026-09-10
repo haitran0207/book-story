@@ -40,26 +40,34 @@ class FileProviderImpl @Inject constructor(
             )
 
             if (!storageFile.isDirectory) return@forEach
-            if (!book.filePath.startsWith(storageFile.path, ignoreCase = true)) return@forEach
 
             storageFile.walk().forEach { file ->
-                if (book.filePath.equals(file.path, ignoreCase = true)) {
+                if (book.filePath.equals(file.path, ignoreCase = true) ||
+                    book.title.equals(file.name.substringBeforeLast("."), ignoreCase = true)) {
                     return@runCatching file
                 }
             }
         }
 
-        throw NoSuchElementException("Could not find file from book.")
+        throw NoSuchElementException("Could not find file from book: ${book.filePath}")
     }
 
     override fun getStorageFiles(): Result<List<CachedFile>> = runCatching {
         val safStorages = application.contentResolver.persistedUriPermissions.mapNotNull { permission ->
-            val storage = CachedFileCompat.fromUri(
-                application,
-                permission.uri
-            )
-            if (!storage.isDirectory) return@mapNotNull null
-            storage
+            try {
+                val storage = CachedFileCompat.fromUri(
+                    application,
+                    permission.uri
+                )
+                if (!storage.isDirectory) return@mapNotNull null
+                storage
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        if (safStorages.isNotEmpty()) {
+            return@runCatching safStorages
         }
 
         val standardDirs = try {
@@ -89,9 +97,8 @@ class FileProviderImpl @Inject constructor(
             emptyList()
         }
 
-        val allStorages = safStorages + standardDirs
-        allStorages.filter { storage ->
-            allStorages.none { other ->
+        standardDirs.filter { storage ->
+            standardDirs.none { other ->
                 other.path != storage.path && storage.path.startsWith(
                     other.path,
                     ignoreCase = true

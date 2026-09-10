@@ -16,6 +16,28 @@ android {
     namespace = "ua.acclorite.book_story"
     compileSdk = 36
 
+    fun bumpVersion(version: String): String {
+        val clean = version.trim().removePrefix("v")
+        val parts = clean.split(".").map { it.toIntOrNull() ?: 0 }.toMutableList()
+        while (parts.size < 3) {
+            parts.add(0)
+        }
+        parts[parts.size - 1] += 1
+        return parts.joinToString(".")
+    }
+
+    fun isGitDirty(): Boolean {
+        return try {
+            val status = providers.exec {
+                commandLine("git", "status", "--porcelain")
+                isIgnoreExitValue = true
+            }.standardOutput.asText.get().trim()
+            status.isNotEmpty()
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     fun getGitVersionName(): String {
         val prop = project.findProperty("versionName") as String?
             ?: project.findProperty("appVersionName") as String?
@@ -28,14 +50,31 @@ android {
             val tag = providers.exec {
                 commandLine("git", "describe", "--tags", "--abbrev=0")
                 isIgnoreExitValue = true
+            }.standardOutput.asText.get().trim().removePrefix("v")
+
+            val baseVersion = if (tag.isNotEmpty() && !tag.contains("fatal")) tag else "1.8.0"
+
+            val describeLong = providers.exec {
+                commandLine("git", "describe", "--tags", "--long")
+                isIgnoreExitValue = true
             }.standardOutput.asText.get().trim()
-            if (tag.isNotEmpty() && !tag.contains("fatal")) {
-                tag.removePrefix("v")
+
+            val commitsAhead = if (describeLong.contains("-")) {
+                val match = Regex("-(\\d+)-g[0-9a-fA-F]+").find(describeLong)
+                match?.groupValues?.get(1)?.toIntOrNull() ?: 0
             } else {
-                "1.8.0"
+                0
+            }
+
+            val dirty = isGitDirty()
+
+            if (commitsAhead > 0 || dirty) {
+                bumpVersion(baseVersion)
+            } else {
+                baseVersion
             }
         } catch (e: Exception) {
-            "1.8.0"
+            "1.8.1"
         }
     }
 
@@ -52,9 +91,10 @@ android {
                 commandLine("git", "rev-list", "--count", "HEAD")
                 isIgnoreExitValue = true
             }.standardOutput.asText.get().trim()
-            countStr.toIntOrNull() ?: 14
+            val baseCount = countStr.toIntOrNull() ?: 757
+            if (isGitDirty()) baseCount + 1 else baseCount
         } catch (e: Exception) {
-            14
+            758
         }
     }
 
