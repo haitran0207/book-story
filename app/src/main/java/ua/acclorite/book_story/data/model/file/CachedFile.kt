@@ -10,6 +10,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.compose.runtime.Immutable
+import androidx.documentfile.provider.DocumentFile
 import com.anggrayudi.storage.file.DocumentFileCompat
 import com.anggrayudi.storage.file.getAbsolutePath
 import java.io.BufferedOutputStream
@@ -97,6 +98,20 @@ class CachedFile(
         }
     }
 
+    private fun getDocumentFile(): DocumentFile? {
+        return try {
+            when {
+                DocumentsContract.isTreeUri(uri) -> {
+                    DocumentFile.fromTreeUri(context, uri)
+                        ?: DocumentFileCompat.fromUri(context, uri)
+                }
+                else -> DocumentFileCompat.fromUri(context, uri)
+            }
+        } catch (e: Exception) {
+            DocumentFileCompat.fromUri(context, uri)
+        }
+    }
+
     fun listFiles(forEach: ((CachedFile) -> Unit)? = null): List<CachedFile> {
         if (!isDirectory) return emptyList()
 
@@ -131,7 +146,7 @@ class CachedFile(
         }
 
         return try {
-            val docFile = DocumentFileCompat.fromUri(context, uri) ?: return emptyList()
+            val docFile = getDocumentFile() ?: return emptyList()
             if (!docFile.isDirectory) return emptyList()
 
             val children = docFile.listFiles()
@@ -141,7 +156,9 @@ class CachedFile(
                 if (childName.equals("Android", ignoreCase = true) || childName.startsWith(".")) {
                     continue
                 }
-                val childAbsPath = child.getAbsolutePath(context).ifBlank { "$path/$childName" }
+                val childAbsPath = child.getAbsolutePath(context).ifBlank {
+                    if (path.isNotBlank()) "$path/$childName" else childName
+                }
                 val queryFile = CachedFileCompat.fromUri(
                     context = context,
                     uri = child.uri,
@@ -200,7 +217,9 @@ class CachedFile(
                                 cachedFiles.add(cached)
                             }
                         }
-                    return cachedFiles
+                    if (cachedFiles.isNotEmpty()) {
+                        return cachedFiles
+                    }
                 } catch (e: Exception) {
                     e.printStackTrace()
                     cachedFiles.clear()
@@ -208,18 +227,54 @@ class CachedFile(
             }
         }
 
-        // 2. Otherwise recursively traverse using listFiles() (which uses DocumentFileCompat)
-        listFiles { child ->
-            when (child.isDirectory) {
-                false -> {
-                    forEach?.invoke(child)
-                    cachedFiles.add(child)
+        // 2. Traverse SAF Tree recursively using DocumentFile
+        try {
+            val rootDoc = getDocumentFile()
+            if (rootDoc != null && rootDoc.isDirectory) {
+                fun traverse(doc: DocumentFile, parentPath: String) {
+                    val children = try {
+                        doc.listFiles()
+                    } catch (e: Exception) {
+                        emptyArray()
+                    }
+                    for (child in children) {
+                        val childName = child.name ?: continue
+                        if (childName.equals("Android", ignoreCase = true) || childName.startsWith(".")) {
+                            continue
+                        }
+                        val childAbsPath = child.getAbsolutePath(context).ifBlank {
+                            if (parentPath.isNotBlank()) "$parentPath/$childName" else childName
+                        }
+                        val isDir = child.isDirectory
+                        val cached = CachedFileCompat.fromUri(
+                            context = context,
+                            uri = child.uri,
+                            builder = CachedFileCompat.build(
+                                name = childName,
+                                path = childAbsPath,
+                                size = child.length(),
+                                lastModified = child.lastModified(),
+                                isDirectory = isDir
+                            )
+                        )
+
+                        if (!isDir) {
+                            forEach?.invoke(cached)
+                            cachedFiles.add(cached)
+                        } else {
+                            if (includeDirectories) {
+                                forEach?.invoke(cached)
+                                cachedFiles.add(cached)
+                            }
+                            traverse(child, childAbsPath)
+                        }
+                    }
                 }
-                true -> {
-                    if (includeDirectories) cachedFiles.add(child)
-                    cachedFiles.addAll(child.walk(includeDirectories, forEach))
-                }
+
+                traverse(rootDoc, path)
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
 
         return cachedFiles
@@ -271,7 +326,7 @@ class CachedFile(
         }
 
         try {
-            val docFile = DocumentFileCompat.fromUri(context, uri)
+            val docFile = getDocumentFile()
             if (docFile != null) {
                 return QueryParams(
                     name = builder?.name ?: docFile.name ?: "unknown_${UUID.randomUUID()}",
@@ -300,8 +355,8 @@ class CachedFile(
             return builder.path.trimEnd('/')
         }
         return try {
-            val tempFile = DocumentFileCompat.fromUri(context, uri)
-            tempFile?.getAbsolutePath(context)?.trimEnd('/') ?: ""
+            val docFile = getDocumentFile()
+            docFile?.getAbsolutePath(context)?.trimEnd('/') ?: ""
         } catch (e: Exception) {
             ""
         }
