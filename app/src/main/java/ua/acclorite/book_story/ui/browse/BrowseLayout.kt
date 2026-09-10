@@ -19,21 +19,23 @@ import java.io.File
 fun BrowseLayout(
     files: List<SelectableFile>,
     pinnedPaths: List<String>,
+    collapsedPaths: Set<String>,
     layout: BrowseLayout,
     gridSize: Int,
     autoGridSize: Boolean,
     listState: LazyListState,
     gridState: LazyGridState,
-    headerContent: @Composable (header: String, pinned: Boolean) -> Unit,
+    headerContent: @Composable (header: String, pinned: Boolean, collapsed: Boolean, fileCount: Int) -> Unit,
     itemContent: @Composable (file: SelectableFile, files: List<SelectableFile>) -> Unit
 ) {
-    val groupedFiles = remember(files, pinnedPaths) {
+    val groupedFiles = remember(files, pinnedPaths, collapsedPaths) {
         files.groupBy { file ->
             file.path.substringBeforeLast(File.separator)
         }.map { (header, files) ->
             GroupedFiles(
                 header = header,
                 pinned = pinnedPaths.any { it.lowercase().trim() == header.lowercase().trim() },
+                collapsed = header in collapsedPaths,
                 files = files
             )
         }.sortedByDescending { group ->

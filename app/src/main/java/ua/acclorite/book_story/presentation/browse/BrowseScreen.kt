@@ -14,7 +14,10 @@ import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusRequester
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -80,17 +83,24 @@ object BrowseScreen : Screen, Parcelable {
             }
         )
 
+        var isInitialComposition by remember { mutableStateOf(true) }
         LaunchedEffect(
             settings.browseIncludedFilterItems.value,
             settings.browseSortOrderDescending.value,
             settings.browseSortOrder.value
         ) {
-            screenModel.onEvent(
-                BrowseEvent.OnRefreshList(
-                    loading = false,
-                    hideSearch = false
+            if (isInitialComposition) {
+                isInitialComposition = false
+                return@LaunchedEffect
+            }
+            if (state.value.files.isNotEmpty()) {
+                screenModel.onEvent(
+                    BrowseEvent.OnRefreshList(
+                        loading = false,
+                        hideSearch = false
+                    )
                 )
-            )
+            }
         }
 
         LaunchedEffect(Unit) {
@@ -142,6 +152,7 @@ object BrowseScreen : Screen, Parcelable {
             autoGridSize = settings.browseAutoGridSize.value,
             includedFilterItems = settings.browseIncludedFilterItems.value,
             pinnedPaths = settings.browsePinnedPaths.value,
+            collapsedPaths = state.value.collapsedPaths,
             canScrollBackList = listState.canScrollBackward,
             canScrollBackGrid = gridState.canScrollBackward,
             hasSelectedItems = state.value.hasSelectedItems,
@@ -167,7 +178,9 @@ object BrowseScreen : Screen, Parcelable {
             actionAddDialog = screenModel::onEvent,
             updatePinnedPaths = screenModel::onEvent,
             navigateToLibrary = screenModel::onEvent,
-            navigateToBrowseSettings = screenModel::onEvent
+            navigateToBrowseSettings = screenModel::onEvent,
+            onRefreshList = screenModel::onEvent,
+            toggleCollapsePath = screenModel::onEvent
         )
     }
 }

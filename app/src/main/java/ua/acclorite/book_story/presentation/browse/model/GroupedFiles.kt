@@ -12,5 +12,6 @@ import androidx.compose.runtime.Immutable
 data class GroupedFiles(
     val header: String,
     val pinned: Boolean,
+    val collapsed: Boolean,
     val files: List<SelectableFile>
 )

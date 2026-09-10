@@ -36,6 +36,7 @@ fun BrowseScaffold(
     autoGridSize: Boolean,
     includedFilterItems: List<String>,
     pinnedPaths: List<String>,
+    collapsedPaths: Set<String>,
     canScrollBackList: Boolean,
     canScrollBackGrid: Boolean,
     hasSelectedItems: Boolean,
@@ -56,7 +57,9 @@ fun BrowseScaffold(
     showFilterBottomSheet: (BrowseEvent.OnShowFilterBottomSheet) -> Unit,
     showAddDialog: (BrowseEvent.OnShowAddDialog) -> Unit,
     updatePinnedPaths: (BrowseEvent.OnUpdatePinnedPaths) -> Unit,
-    navigateToBrowseSettings: (BrowseEvent.OnNavigateToBrowseSettings) -> Unit
+    navigateToBrowseSettings: (BrowseEvent.OnNavigateToBrowseSettings) -> Unit,
+    onRefreshList: (BrowseEvent.OnRefreshList) -> Unit,
+    toggleCollapsePath: (BrowseEvent.OnToggleCollapsePath) -> Unit
 ) {
     Scaffold(
         modifier = Modifier
@@ -72,6 +75,8 @@ fun BrowseScaffold(
                 canScrollBackGrid = canScrollBackGrid,
                 hasSelectedItems = hasSelectedItems,
                 selectedItemsCount = selectedItemsCount,
+                isLoading = isLoading,
+                isRefreshing = isRefreshing,
                 showSearch = showSearch,
                 searchQuery = searchQuery,
                 focusRequester = focusRequester,
@@ -82,7 +87,8 @@ fun BrowseScaffold(
                 clearSelectedFiles = clearSelectedFiles,
                 selectFiles = selectFiles,
                 showFilterBottomSheet = showFilterBottomSheet,
-                showAddDialog = showAddDialog
+                showAddDialog = showAddDialog,
+                onRefreshList = onRefreshList
             )
         }
     ) { padding ->
@@ -95,18 +101,28 @@ fun BrowseScaffold(
                 BrowseLayout(
                     files = files,
                     pinnedPaths = pinnedPaths,
+                    collapsedPaths = collapsedPaths,
                     layout = layout,
                     gridSize = gridSize,
                     autoGridSize = autoGridSize,
                     listState = listState,
                     gridState = gridState,
-                    headerContent = { header, pinned ->
+                    headerContent = { header, pinned, collapsed, fileCount ->
                         BrowseLayoutHeader(
                             header = header,
                             pinned = pinned,
+                            collapsed = collapsed,
+                            fileCount = fileCount,
                             pin = {
                                 updatePinnedPaths(
                                     BrowseEvent.OnUpdatePinnedPaths(
+                                        path = header
+                                    )
+                                )
+                            },
+                            toggleCollapse = {
+                                toggleCollapsePath(
+                                    BrowseEvent.OnToggleCollapsePath(
                                         path = header
                                     )
                                 )

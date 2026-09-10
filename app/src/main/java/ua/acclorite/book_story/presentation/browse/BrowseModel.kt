@@ -53,13 +53,6 @@ class BrowseModel @Inject constructor(
     val effects = _effects.asSharedFlow()
 
     init {
-        onEvent(
-            BrowseEvent.OnRefreshList(
-                loading = true,
-                hideSearch = true
-            )
-        )
-
         /* Observe channel - - - - - - - - - - - */
         viewModelScope.launch {
             BrowseScreen.refreshListChannel.receiveAsFlow().collectLatest {
@@ -376,6 +369,17 @@ class BrowseModel @Inject constructor(
 
                 is BrowseEvent.OnUpdatePinnedPaths -> {
                     _effects.emit(BrowseEffect.OnUpdatePinnedPaths(event.path))
+                }
+
+                is BrowseEvent.OnToggleCollapsePath -> {
+                    _state.update {
+                        val newCollapsed = if (event.path in it.collapsedPaths) {
+                            it.collapsedPaths - event.path
+                        } else {
+                            it.collapsedPaths + event.path
+                        }
+                        it.copy(collapsedPaths = newCollapsed)
+                    }
                 }
 
                 is BrowseEvent.OnNavigateToLibrary -> {

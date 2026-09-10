@@ -25,7 +25,7 @@ import ua.acclorite.book_story.ui.common.data.ScrollbarData
 fun BrowseListLayout(
     groupedFiles: List<GroupedFiles>,
     listState: LazyListState,
-    headerContent: @Composable (header: String, pinned: Boolean) -> Unit,
+    headerContent: @Composable (header: String, pinned: Boolean, collapsed: Boolean, fileCount: Int) -> Unit,
     itemContent: @Composable (file: SelectableFile, files: List<SelectableFile>) -> Unit
 ) {
     LazyColumnWithScrollbar(
@@ -37,16 +37,18 @@ fun BrowseListLayout(
         groupedFiles.forEach { group ->
             stickyHeader {
                 Box(Modifier.animateItem()) {
-                    headerContent(group.header, group.pinned)
+                    headerContent(group.header, group.pinned, group.collapsed, group.files.size)
                 }
             }
 
-            items(
-                group.files,
-                key = { it.path }
-            ) { selectableFile ->
-                Box(Modifier.animateItem()) {
-                    itemContent(selectableFile, group.files)
+            if (!group.collapsed) {
+                items(
+                    group.files,
+                    key = { it.path }
+                ) { selectableFile ->
+                    Box(Modifier.animateItem()) {
+                        itemContent(selectableFile, group.files)
+                    }
                 }
             }
         }

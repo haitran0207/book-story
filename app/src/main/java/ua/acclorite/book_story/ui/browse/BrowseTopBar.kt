@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +47,8 @@ fun BrowseTopBar(
     canScrollBackGrid: Boolean,
     hasSelectedItems: Boolean,
     selectedItemsCount: Int,
+    isLoading: Boolean,
+    isRefreshing: Boolean,
     showSearch: Boolean,
     searchQuery: String,
     focusRequester: FocusRequester,
@@ -56,7 +59,8 @@ fun BrowseTopBar(
     clearSelectedFiles: (BrowseEvent.OnClearSelectedFiles) -> Unit,
     selectFiles: (BrowseEvent.OnSelectFiles) -> Unit,
     showFilterBottomSheet: (BrowseEvent.OnShowFilterBottomSheet) -> Unit,
-    showAddDialog: (BrowseEvent.OnShowAddDialog) -> Unit
+    showAddDialog: (BrowseEvent.OnShowAddDialog) -> Unit,
+    onRefreshList: (BrowseEvent.OnRefreshList) -> Unit
 ) {
     val isScrolled = remember(layout, canScrollBackList, canScrollBackGrid) {
         derivedStateOf {
@@ -93,6 +97,19 @@ fun BrowseTopBar(
                     )
                 },
                 contentActions = {
+                    IconButton(
+                        icon = Icons.Outlined.Refresh,
+                        contentDescription = R.string.reload_files_content_desc,
+                        disableOnClick = false,
+                        enabled = !isRefreshing && !isLoading
+                    ) {
+                        onRefreshList(
+                            BrowseEvent.OnRefreshList(
+                                loading = false,
+                                hideSearch = false
+                            )
+                        )
+                    }
                     IconButton(
                         icon = Icons.Default.Search,
                         contentDescription = R.string.search_content_desc,

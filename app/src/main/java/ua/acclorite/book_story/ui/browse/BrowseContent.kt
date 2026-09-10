@@ -35,6 +35,7 @@ fun BrowseContent(
     autoGridSize: Boolean,
     includedFilterItems: List<String>,
     pinnedPaths: List<String>,
+    collapsedPaths: Set<String>,
     canScrollBackList: Boolean,
     canScrollBackGrid: Boolean,
     hasSelectedItems: Boolean,
@@ -60,7 +61,9 @@ fun BrowseContent(
     selectAddDialog: (BrowseEvent.OnSelectAddDialog) -> Unit,
     updatePinnedPaths: (BrowseEvent.OnUpdatePinnedPaths) -> Unit,
     navigateToLibrary: (BrowseEvent.OnNavigateToLibrary) -> Unit,
-    navigateToBrowseSettings: (BrowseEvent.OnNavigateToBrowseSettings) -> Unit
+    navigateToBrowseSettings: (BrowseEvent.OnNavigateToBrowseSettings) -> Unit,
+    onRefreshList: (BrowseEvent.OnRefreshList) -> Unit,
+    toggleCollapsePath: (BrowseEvent.OnToggleCollapsePath) -> Unit
 ) {
     BrowseDialog(
         dialog = dialog,
@@ -86,6 +89,7 @@ fun BrowseContent(
         autoGridSize = autoGridSize,
         includedFilterItems = includedFilterItems,
         pinnedPaths = pinnedPaths,
+        collapsedPaths = collapsedPaths,
         canScrollBackList = canScrollBackList,
         canScrollBackGrid = canScrollBackGrid,
         hasSelectedItems = hasSelectedItems,
@@ -106,7 +110,9 @@ fun BrowseContent(
         showFilterBottomSheet = showFilterBottomSheet,
         showAddDialog = showAddDialog,
         updatePinnedPaths = updatePinnedPaths,
-        navigateToBrowseSettings = navigateToBrowseSettings
+        navigateToBrowseSettings = navigateToBrowseSettings,
+        onRefreshList = onRefreshList,
+        toggleCollapsePath = toggleCollapsePath
     )
 
     BrowseBackHandler(

@@ -55,6 +55,10 @@ sealed class BrowseEvent {
         val path: String
     ) : BrowseEvent()
 
+    data class OnToggleCollapsePath(
+        val path: String
+    ) : BrowseEvent()
+
     data object OnNavigateToLibrary : BrowseEvent()
 
     data object OnNavigateToBrowseSettings : BrowseEvent()

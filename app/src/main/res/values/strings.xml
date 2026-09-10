@@ -529,6 +529,7 @@
     <string name="collapse_content_desc">Collapse</string>
     <string name="remove_content_desc">Remove</string>
     <string name="note_content_desc">Note</string>
+    <string name="reload_files_content_desc">Reload</string>
 
     <!-- Connect & DataEngineer Cloud Feature -->
     <string name="connect_screen">Connect</string>

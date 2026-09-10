@@ -16,8 +16,10 @@ import ua.acclorite.book_story.presentation.browse.model.SelectableNullableBook
 data class BrowseState(
     val files: List<SelectableFile> = emptyList(),
 
-    val isLoading: Boolean = true,
+    val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
+
+    val collapsedPaths: Set<String> = emptySet(),
 
     val selectedItemsCount: Int = 0,
     val hasSelectedItems: Boolean = false,
