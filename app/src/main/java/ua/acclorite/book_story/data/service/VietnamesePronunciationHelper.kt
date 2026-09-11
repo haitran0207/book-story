@@ -1,23 +1,187 @@
 package ua.acclorite.book_story.data.service
 
 /**
- * Helper object providing pronunciation transliteration for common English words
- * (technology, software, programming, office, business, internet, and daily life)
+ * Helper object providing pronunciation transliteration for common English words,
+ * tech terms, and famous proper names (philosophers, authors, scientists, leaders, celebrities)
  * when synthesizing speech using a Vietnamese TTS voice.
  *
- * This allows English words inside Vietnamese sentences (e.g. "Hàm if trong excel hoạt động như...")
+ * This allows English terms and foreign names inside Vietnamese sentences
+ * (e.g. "Hàm if trong excel hoạt động như...", "Theo triết gia Nietzsche và Socrates...")
  * to be pronounced naturally, smoothly, and intelligibly by the Vietnamese voice model
  * without unnatural phonetic reading or stuttering.
  */
 object VietnamesePronunciationHelper {
 
     /**
-     * Dictionary mapping common English words to natural Vietnamese phonetic transcriptions.
+     * Dictionary mapping common English words, technical terms, and foreign famous names
+     * to natural Vietnamese phonetic transcriptions.
      * All keys are lowercase and sorted by descending length during regex compilation
-     * so longer compound phrases take precedence over shorter substrings.
+     * so longer compound phrases (e.g. 'Albert Einstein', 'pivottable') take precedence
+     * over shorter substrings ('Einstein', 'table').
      */
     private val PRONUNCIATION_MAP: Map<String, String> = mapOf(
-        // === Office & Spreadsheets (Excel, Word, PowerPoint) ===
+        // =========================================================================
+        // 1. FAMOUS PHILOSOPHERS, WRITERS, SCIENTISTS & THINKERS
+        // =========================================================================
+        // --- Philosophers & Thinkers ---
+        "friedrich nietzsche" to "Phri-đơ-rích Nít-sơ",
+        "marcus aurelius" to "Mác-cút Ô-rê-li-út",
+        "jean-jacques rousseau" to "Rơ-nê Ru-xô",
+        "rene descartes" to "Rơ-nê Đê-các",
+        "immanuel kant" to "I-ma-nu-en Can-tơ",
+        "michel foucault" to "Mi-sen Phu-cô",
+        "jean-paul sartre" to "Giăng Pôn Sát-trơ",
+        "friedrich engels" to "Phri-đơ-rích Ăng-ghen",
+        "schopenhauer" to "Sô-pen-hao-ơ",
+        "machiavelli" to "Ma-ki-a-ve-li",
+        "aristotle" to "A-rít-xtốt",
+        "montesquieu" to "Mông-te-xki-ơ",
+        "epictetus" to "Ê-pích-tê-tút",
+        "karl marx" to "Cát Mác",
+        "nietzsche" to "Nít-sơ",
+        "descartes" to "Đê-các",
+        "rousseau" to "Ru-xô",
+        "socrates" to "Xô-cơ-rát",
+        "spinoza" to "Xpi-nô-za",
+        "voltaire" to "Vôn-te",
+        "engels" to "Ăng-ghen",
+        "foucault" to "Phu-cô",
+        "sartre" to "Sát-trơ",
+        "seneca" to "Xê-nê-ca",
+        "plato" to "P-la-tôn",
+        "hegel" to "Hê-ghen",
+        "lenin" to "Lê-nin",
+        "marx" to "Mác",
+        "kant" to "Can-tơ",
+
+        // --- Writers, Novelists & Poets ---
+        "william shakespeare" to "Uy-li-am Xếch-xpia",
+        "gabriel garcia marquez" to "Gác-xi-a Mác-két",
+        "fyodor dostoevsky" to "Đốt-xtôi-ép-xki",
+        "arthur conan doyle" to "Cô-nan Đoi-lơ",
+        "ernest hemingway" to "Ơ-nít Hê-minh-uê",
+        "haruki murakami" to "Ha-ru-ki Mu-ra-ca-mi",
+        "sherlock holmes" to "Sơ-lốc Hôm",
+        "alexandre dumas" to "A-lếch-xăng Đuy-ma",
+        "agatha christie" to "A-ga-tha Cơ-rít-xti",
+        "charles dickens" to "Sác-lơ Đích-ken",
+        "honore de balzac" to "Ô-nô-rê Đơ Ban-dắc",
+        "yuval noah harari" to "Giu-van Nô-a Ha-ra-ri",
+        "george orwell" to "Gioóc O-oen",
+        "harry potter" to "Ha-ri Pót-tơ",
+        "franz kafka" to "Phơ-ranh Cáp-ca",
+        "albert camus" to "An-be Ca-miu",
+        "leo tolstoy" to "Lép Tôn-xtôi",
+        "dostoevsky" to "Đốt-xtôi-ép-xki",
+        "mark twain" to "Mác Tuên",
+        "victor hugo" to "Vích-to Huy-gô",
+        "shakespeare" to "Xếch-xpia",
+        "conan doyle" to "Cô-nan Đoi-lơ",
+        "hemingway" to "Hê-minh-uê",
+        "murakami" to "Mu-ra-ca-mi",
+        "sherlock" to "Sơ-lốc",
+        "tolstoy" to "Tôn-xtôi",
+        "dickens" to "Đích-ken",
+        "marquez" to "Mác-két",
+        "rowling" to "Rao-linh",
+        "tolkien" to "Tô-kin",
+        "balzac" to "Ban-dắc",
+        "chekhov" to "Sê-khốp",
+        "orwell" to "O-oen",
+        "coelho" to "Cu-ê-lô",
+        "harari" to "Ha-ra-ri",
+        "pushkin" to "Pút-xkin",
+        "kafka" to "Cáp-ca",
+        "camus" to "Ca-miu",
+        "dumas" to "Đuy-ma",
+        "gorky" to "Gót-ki",
+        "homer" to "Hô-me",
+        "hugo" to "Huy-gô",
+
+        // --- Psychologists & Self-Help Authors ---
+        "sigmund freud" to "Xích-mơn Phơ-rớt",
+        "napoleon hill" to "Na-pô-lê-ông Hin",
+        "stephen covey" to "Xti-vừn Cô-vây",
+        "dale carnegie" to "Đê-o Cát-nê-gi",
+        "robert kiyosaki" to "Rô-bợt Ki-yô-xa-ki",
+        "paulo coelho" to "Pao-lô Cu-ê-lô",
+        "kiyosaki" to "Ki-yô-xa-ki",
+        "carnegie" to "Cát-nê-gi",
+        "freud" to "Phơ-rớt",
+
+        // --- Scientists, Inventors & Mathematicians ---
+        "albert einstein" to "Anh-xtanh",
+        "stephen hawking" to "Xti-vừn Hốc-kinh",
+        "charles darwin" to "Sác-lơ Đác-uyn",
+        "thomas edison" to "Thô-mát Ê-đi-xơn",
+        "galileo galilei" to "Ga-li-lê",
+        "alexander fleming" to "Phơ-le-minh",
+        "nikola tesla" to "Ni-cô-la Tét-xla",
+        "louis pasteur" to "Lui Pa-xtơ",
+        "isaac newton" to "I-sắc Niu-tơn",
+        "marie curie" to "Ma-ri Quy-ri",
+        "alan turing" to "A-lan Tu-rinh",
+        "archimedes" to "Ác-si-mét",
+        "pythagoras" to "Pi-ta-go",
+        "einstein" to "Anh-xtanh",
+        "hawking" to "Hốc-kinh",
+        "galileo" to "Ga-li-lê",
+        "pasteur" to "Pa-xtơ",
+        "darwin" to "Đác-uyn",
+        "edison" to "Ê-đi-xơn",
+        "newton" to "Niu-tơn",
+        "turing" to "Tu-rinh",
+        "curie" to "Quy-ri",
+        "tesla" to "Tét-xla",
+        "euclid" to "Ơ-clít",
+
+        // =========================================================================
+        // 2. TECH LEADERS, CELEBRITIES & HISTORICAL FIGURES
+        // =========================================================================
+        "napoleon bonaparte" to "Na-pô-lê-ông Bô-na-pác",
+        "alexander the great" to "A-lếch-xăng Đại đế",
+        "george washington" to "Gioóc Oa-sinh-tơn",
+        "abraham lincoln" to "A-bra-ham Linh-côn",
+        "mark zuckerberg" to "Mác Dơ-cơ-bớt",
+        "cristiano ronaldo" to "Cơ-rít-ti-a-nô Rô-nan-đô",
+        "michael jackson" to "Mai-cơn Giắc-xơn",
+        "warren buffett" to "Oa-rơn Báp-phít",
+        "julius caesar" to "Duy-li-út Xê-da",
+        "barack obama" to "Ba-rắc Ô-ba-ma",
+        "donald trump" to "Đô-nan Trăm",
+        "jensen huang" to "Gien-sen Hoang",
+        "sundar pichai" to "Sun-đa Pi-chai",
+        "satya nadella" to "Xa-ti-a Na-đen-la",
+        "taylor swift" to "Tay-lơ Xuyt",
+        "steve jobs" to "Xti-vơ Gióp",
+        "bill gates" to "Biu Ghét",
+        "elon musk" to "I-lon Mớt",
+        "jeff bezos" to "Dép Bê-dốt",
+        "sam altman" to "Sam Oan-man",
+        "joe biden" to "Giô Bai-đơn",
+        "larry page" to "La-ri Pây",
+        "sergey brin" to "Xơ-gây Brin",
+        "lionel messi" to "Li-ô-nen Mét-xi",
+        "tim cook" to "Tim Cúc",
+        "zuckerberg" to "Dơ-cơ-bớt",
+        "napoleon" to "Na-pô-lê-ông",
+        "washington" to "Oa-sinh-tơn",
+        "buffett" to "Báp-phít",
+        "lincoln" to "Linh-côn",
+        "ronaldo" to "Rô-nan-đô",
+        "obama" to "Ô-ba-ma",
+        "trump" to "Trăm",
+        "biden" to "Bai-đơn",
+        "bezos" to "Bê-dốt",
+        "gates" to "Ghét",
+        "musk" to "Mớt",
+        "jobs" to "Gióp",
+        "messi" to "Mét-xi",
+        "caesar" to "Xê-da",
+
+        // =========================================================================
+        // 3. OFFICE & SPREADSHEETS (Excel, Word, PowerPoint)
+        // =========================================================================
         "pivottable" to "pi-vót tây-bồ",
         "powerpoint" to "pao-o-poy-ừn",
         "presentation" to "pri-zen-tây-xừn",
@@ -53,7 +217,9 @@ object VietnamesePronunciationHelper {
         "vba" to "vê-bê-a",
         "xls" to "ếch-seo",
 
-        // === Logic, Programming & Core CS Keywords ===
+        // =========================================================================
+        // 4. LOGIC, PROGRAMMING & CORE CS KEYWORDS
+        // =========================================================================
         "application" to "áp-pli-cây-xừn",
         "javascript" to "gia-va-scrip",
         "typescript" to "típ-scrip",
@@ -102,7 +268,6 @@ object VietnamesePronunciationHelper {
         "metric" to "mét-trích",
         "import" to "im-pọt",
         "export" to "ếch-x-pọt",
-        "switch" to "xuyt",
         "action" to "ác-xừn",
         "script" to "sờ-crip",
         "source" to "sọt",
@@ -184,7 +349,9 @@ object VietnamesePronunciationHelper {
         "ci" to "xi-ai",
         "cd" to "xi-đi",
 
-        // === Devices, Hardware, OS & Networking ===
+        // =========================================================================
+        // 5. DEVICES, HARDWARE, OS & NETWORKING
+        // =========================================================================
         "smartphone" to "x-mát-phôn",
         "microphone" to "mai-crô-phôn",
         "headphone" to "hét-phôn",
@@ -228,7 +395,6 @@ object VietnamesePronunciationHelper {
         "reset" to "ri-xét",
         "port" to "pọt",
         "auth" to "ót",
-        "case" to "kết",
         "dns" to "đê-en-ét",
         "gpu" to "gờ-pê-u",
         "cpu" to "xê-pê-u",
@@ -245,7 +411,9 @@ object VietnamesePronunciationHelper {
         "gcp" to "gờ-xê-pê",
         "ip" to "ai-pi",
 
-        // === Web, Apps, Cloud & Services ===
+        // =========================================================================
+        // 6. WEB, APPS, CLOUD & PLATFORMS
+        // =========================================================================
         "settings" to "sét-tinh-sờ",
         "download" to "đao-lốt",
         "facebook" to "phây-sơ-búc",
@@ -282,7 +450,6 @@ object VietnamesePronunciationHelper {
         "chrome" to "crôm",
         "cursor" to "cơ-sơ",
         "delete" to "đe-lét",
-        "filter" to "phin-tơ",
         "layout" to "lay-ao",
         "notice" to "nô-tít",
         "option" to "ọp-xừn",
@@ -321,7 +488,9 @@ object VietnamesePronunciationHelper {
         "web" to "uép",
         "ai" to "a-ai",
 
-        // === Business, Work, Office & Finance ===
+        // =========================================================================
+        // 7. BUSINESS, WORK & FINANCE
+        // =========================================================================
         "blockchain" to "b-lốc-chen",
         "conference" to "con-phơ-rơn",
         "interview" to "in-tơ-viu",
@@ -358,7 +527,6 @@ object VietnamesePronunciationHelper {
         "invest" to "in-vét",
         "leader" to "lít-đơ",
         "market" to "mác-két",
-        "office" to "ọp-phít",
         "report" to "ri-pọt",
         "salary" to "xa-la-ri",
         "target" to "ta-gét",
@@ -396,7 +564,9 @@ object VietnamesePronunciationHelper {
         "hr" to "hắt-rờ",
         "pr" to "pê-rờ",
 
-        // === Social Media, Content & Creator ===
+        // =========================================================================
+        // 8. SOCIAL MEDIA, CONTENT & CREATORS
+        // =========================================================================
         "notification" to "nô-ti-phi-cây-xừn",
         "livestream" to "lai-x-trim",
         "subscriber" to "súp-x-crai-bơ",
@@ -413,7 +583,6 @@ object VietnamesePronunciationHelper {
         "content" to "con-ten",
         "fandom" to "phan-đom",
         "follow" to "phô-lâu",
-        "online" to "on-lai",
         "review" to "ri-viu",
         "status" to "x-ta-tớt",
         "stream" to "x-trim",
@@ -428,18 +597,18 @@ object VietnamesePronunciationHelper {
         "video" to "vi-đê-ô",
         "viral" to "vai-rồ",
         "call" to "con",
-        "feed" to "phít",
         "idol" to "ai-đồ",
         "like" to "lai",
         "mess" to "mét",
         "noti" to "nô-ti",
         "post" to "pốt",
         "show" to "sô",
-        "view" to "viu",
         "fan" to "phan",
         "sub" to "súp",
 
-        // === Entertainment, Games, Sports & Lifestyle ===
+        // =========================================================================
+        // 9. ENTERTAINMENT, GAMES, SPORTS & LIFESTYLE
+        // =========================================================================
         "fastfood" to "phát-phút",
         "homestay" to "hôm-x-tây",
         "passport" to "pát-x-pọt",
@@ -462,7 +631,6 @@ object VietnamesePronunciationHelper {
         "scandal" to "x-căng-đan",
         "tourist" to "tu-rít",
         "hotel" to "hô-ten",
-        "match" to "mát",
         "model" to "mô-đen",
         "movie" to "mu-vi",
         "party" to "pát-ti",
@@ -479,7 +647,6 @@ object VietnamesePronunciationHelper {
         "rank" to "ranh",
         "skin" to "x-kin",
         "solo" to "xô-lô",
-        "team" to "tim",
         "tour" to "tua",
         "wine" to "oai",
         "yoga" to "dô-ga",
@@ -493,7 +660,9 @@ object VietnamesePronunciationHelper {
         "vip" to "víp",
         "win" to "win",
 
-        // === Common Slang, Modifiers & Everyday Expressions ===
+        // =========================================================================
+        // 10. COMMON SLANG, MODIFIERS & EVERYDAY EXPRESSIONS
+        // =========================================================================
         "goodbye" to "gút-bai",
         "standard" to "x-tan-đạt",
         "thanks" to "thanh-xì",
@@ -504,7 +673,6 @@ object VietnamesePronunciationHelper {
         "sorry" to "so-ri",
         "stress" to "xì-trét",
         "basic" to "bây-xích",
-        "check" to "chếch",
         "shock" to "sốc",
         "smart" to "x-mát",
         "super" to "su-pơ",
@@ -544,7 +712,8 @@ object VietnamesePronunciationHelper {
 
     /**
      * Precompiled regex for whole-word replacement using word boundaries (\b).
-     * Keys are sorted by descending length so compound terms (e.g. 'pivottable') match before 'table'.
+     * Keys are sorted by descending length so compound terms (e.g. 'William Shakespeare')
+     * match before 'Shakespeare'.
      */
     private val PRONUNCIATION_REGEX: Regex = Regex(
         "\\b(" + PRONUNCIATION_MAP.keys
@@ -554,8 +723,8 @@ object VietnamesePronunciationHelper {
     )
 
     /**
-     * Replaces common English terms in the given text with their Vietnamese phonetic equivalents.
-     * Single-pass regex replacement matching whole words in O(N).
+     * Replaces common English terms and foreign famous names in the given text
+     * with their Vietnamese phonetic equivalents. Single-pass regex replacement in O(N).
      */
     fun applyReplacements(text: String): String {
         return PRONUNCIATION_REGEX.replace(text) { match ->
