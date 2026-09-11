@@ -10,6 +10,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import ua.acclorite.book_story.domain.service.TextToSpeechService
+import java.text.Normalizer
 import java.util.Locale
 import java.util.UUID
 import javax.inject.Inject
@@ -29,6 +30,10 @@ class TextToSpeechServiceImpl @Inject constructor(
 
     private var currentSpeed: Float = 1.75f
     private var currentPitch: Float = 1.0f
+
+    private var defaultLocale: Locale = Locale.getDefault()
+    private var currentAppliedLocale: Locale? = null
+    private var lastDetectedLanguageWasVietnamese = false
 
     override suspend fun initialize() {
         if (isInitialized && tts != null) return
@@ -60,16 +65,22 @@ class TextToSpeechServiceImpl @Inject constructor(
             isInitialized = true
             tts?.let { engine ->
                 try {
-                    val defaultLocale = Locale.getDefault()
-                    val result = engine.setLanguage(defaultLocale)
+                    val sysLocale = Locale.getDefault()
+                    val result = engine.setLanguage(sysLocale)
                     if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                        Log.w("TTS", "Default locale $defaultLocale not supported, falling back to US")
+                        Log.w("TTS", "Default locale $sysLocale not supported, falling back to US")
                         engine.setLanguage(Locale.US)
+                        defaultLocale = Locale.US
+                    } else {
+                        defaultLocale = sysLocale
                     }
+                    currentAppliedLocale = defaultLocale
                 } catch (e: Exception) {
                     Log.e("TTS", "Error setting language on TTS init", e)
                     try {
                         engine.setLanguage(Locale.US)
+                        defaultLocale = Locale.US
+                        currentAppliedLocale = Locale.US
                     } catch (_: Exception) {}
                 }
 
@@ -135,6 +146,8 @@ class TextToSpeechServiceImpl @Inject constructor(
             val utteranceId = "PARAGRAPH_${System.currentTimeMillis()}_${UUID.randomUUID()}"
 
             try {
+                val targetLocale = determineTargetLocale(chunk)
+                applyLanguage(engine, targetLocale)
                 engine.setSpeechRate(currentSpeed)
                 engine.setPitch(currentPitch)
                 val result = engine.speak(chunk, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
@@ -188,6 +201,7 @@ class TextToSpeechServiceImpl @Inject constructor(
         }
         currentUtteranceDeferred?.complete(false)
         currentUtteranceDeferred = null
+        lastDetectedLanguageWasVietnamese = false
     }
 
     override fun setSpeed(speed: Float) {
@@ -272,4 +286,66 @@ class TextToSpeechServiceImpl @Inject constructor(
         }
         return chunks
     }
+
+    private fun applyLanguage(engine: TextToSpeech, targetLocale: Locale) {
+        if (currentAppliedLocale == targetLocale) return
+        try {
+            val result = engine.setLanguage(targetLocale)
+            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                Log.w("TTS", "Language $targetLocale not supported (code $result)")
+                if (targetLocale == VIETNAMESE_LOCALE) {
+                    val viResult = engine.setLanguage(VIETNAMESE_FALLBACK_LOCALE)
+                    if (viResult != TextToSpeech.LANG_MISSING_DATA && viResult != TextToSpeech.LANG_NOT_SUPPORTED) {
+                        currentAppliedLocale = VIETNAMESE_FALLBACK_LOCALE
+                    }
+                }
+            } else {
+                currentAppliedLocale = targetLocale
+            }
+        } catch (e: Exception) {
+            Log.e("TTS", "Error setting language to $targetLocale", e)
+        }
+    }
+
+    private fun determineTargetLocale(text: String): Locale {
+        val normalized = Normalizer.normalize(text, Normalizer.Form.NFC)
+
+        // 1. Direct check for Vietnamese-specific characters and diacritics
+        if (VIETNAMESE_CHARACTERS_REGEX.containsMatchIn(normalized) || COMBINING_MARKS_REGEX.containsMatchIn(text)) {
+            lastDetectedLanguageWasVietnamese = true
+            return VIETNAMESE_LOCALE
+        }
+
+        // 2. Check if the text is clearly English (contains common English words)
+        if (ENGLISH_WORDS_REGEX.containsMatchIn(text)) {
+            lastDetectedLanguageWasVietnamese = false
+            return defaultLocale
+        }
+
+        // 3. For short text without accents (e.g. numbers "123", "...", untoned names "Nam Cao", "Phan 1"):
+        // If the context is Vietnamese, keep Vietnamese. Otherwise use default.
+        if (lastDetectedLanguageWasVietnamese) {
+            return VIETNAMESE_LOCALE
+        }
+
+        return defaultLocale
+    }
+
+    companion object {
+        private val VIETNAMESE_LOCALE = Locale.forLanguageTag("vi-VN")
+        private val VIETNAMESE_FALLBACK_LOCALE = Locale.forLanguageTag("vi")
+
+        private val VIETNAMESE_CHARACTERS_REGEX = Regex(
+            "[àáảãạăắằẳẵặâấầẩẫậđèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ" +
+            "ÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬĐÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴ]"
+        )
+
+        private val COMBINING_MARKS_REGEX = Regex("[\\u0300-\\u036F]")
+
+        private val ENGLISH_WORDS_REGEX = Regex(
+            "\\b(the|and|is|in|it|you|that|he|was|for|on|are|as|with|his|they|at|be|this|have|from|or|one|had|by|word|but|not|what|all|were|we|when|your|can|said|there|each|which|she|do|how|their|if|will|chapter|table|contents|foreword|preface|introduction|epilogue)\\b",
+            RegexOption.IGNORE_CASE
+        )
+    }
 }
+
