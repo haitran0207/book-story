@@ -216,6 +216,77 @@ android {
     }
 }
 
+// Release Auto-Tagging
+tasks.register("tagRelease") {
+    description = "Tags the current commit with the release version if not already tagged"
+    group = "versioning"
+    doLast {
+        val version = (android.defaultConfig.versionName ?: "1.8.0").trim().removePrefix("v")
+        val tagName = "v$version"
+        val status = providers.exec {
+            commandLine("git", "status", "--porcelain")
+            isIgnoreExitValue = true
+        }.standardOutput.asText.get().trim()
+
+        if (status.isNotEmpty()) {
+            println("⚠️ Cannot tag release: working tree has uncommitted changes.")
+        } else {
+            val existingTags = providers.exec {
+                commandLine("git", "tag", "-l", tagName)
+                isIgnoreExitValue = true
+            }.standardOutput.asText.get().trim()
+
+            if (existingTags.isEmpty()) {
+                val exitCode = ProcessBuilder("git", "tag", "-a", tagName, "-m", "Release $tagName")
+                    .inheritIO()
+                    .start()
+                    .waitFor()
+                if (exitCode == 0) {
+                    println("🏷️ Successfully tagged commit with $tagName")
+                } else {
+                    println("⚠️ Failed to tag commit with $tagName (exit code $exitCode)")
+                }
+            } else {
+                println("ℹ️ Tag $tagName already exists.")
+            }
+        }
+    }
+}
+
+tasks.matching { it.name.startsWith("assemble") && it.name.endsWith("Release") }.configureEach {
+    doLast {
+        val version = (android.defaultConfig.versionName ?: "1.8.0").trim().removePrefix("v")
+        val tagName = "v$version"
+        val status = providers.exec {
+            commandLine("git", "status", "--porcelain")
+            isIgnoreExitValue = true
+        }.standardOutput.asText.get().trim()
+
+        if (status.isEmpty()) {
+            val existingTags = providers.exec {
+                commandLine("git", "tag", "-l", tagName)
+                isIgnoreExitValue = true
+            }.standardOutput.asText.get().trim()
+
+            if (existingTags.isEmpty()) {
+                try {
+                    val exitCode = ProcessBuilder("git", "tag", "-a", tagName, "-m", "Release $tagName")
+                        .inheritIO()
+                        .start()
+                        .waitFor()
+                    if (exitCode == 0) {
+                        println("🏷️ Automatically created git tag: $tagName")
+                    } else {
+                        println("⚠️ Auto-tag exited with code $exitCode")
+                    }
+                } catch (e: Exception) {
+                    println("⚠️ Could not auto-tag: ${e.message}")
+                }
+            }
+        }
+    }
+}
+
 // About Libraries configuration
 aboutLibraries {
     registerAndroidTasks = false
