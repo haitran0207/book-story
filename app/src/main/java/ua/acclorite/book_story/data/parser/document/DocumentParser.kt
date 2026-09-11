@@ -49,8 +49,8 @@ class DocumentParser @Inject constructor(
         document.selectFirst("body")
             .run { this ?: document.body() }
             .apply {
-                // Remove manual line breaks from all <p>, <a>
-                select("p").forEach { element ->
+                // Remove manual line breaks from all <p>, <a>, headings, figcaption, blockquote
+                select("p, h1, h2, h3, h4, h5, h6, figcaption, blockquote").forEach { element ->
                     yield()
                     element.html(element.html().replace(Regex("\\n+"), " "))
                     element.append("\n")
@@ -66,9 +66,7 @@ class DocumentParser @Inject constructor(
                 // Markdown
                 select("hr").append("\n---\n")
                 select("b").append("**").prepend("**")
-                select("h1").append("**").prepend("**")
-                select("h2").append("**").prepend("**")
-                select("h3").append("**").prepend("**")
+                select("h1, h2, h3, h4, h5, h6").append("**").prepend("**")
                 select("strong").append("**").prepend("**")
                 select("em").append("_").prepend("_")
                 select("a").forEach { element ->
@@ -96,9 +94,18 @@ class DocumentParser @Inject constructor(
                             } == true
                         } ?: return@forEach
 
-                    val alt = element.attr("alt").trim().takeIf {
-                        it.clearMarkdown().containsVisibleText()
-                    } ?: "Image"
+                    val parentFigure = element.closest("figure")
+                    val figcaption = parentFigure?.selectFirst("figcaption")?.text()?.trim()
+                        ?: element.nextElementSibling()?.takeIf { it.tagName().equals("figcaption", ignoreCase = true) }?.text()?.trim()
+                        ?: element.parent()?.selectFirst("figcaption")?.text()?.trim()
+
+                    val alt = (figcaption?.takeIf { it.containsVisibleText() }
+                        ?: element.attr("title").trim().takeIf { it.clearMarkdown().containsVisibleText() }
+                        ?: element.attr("aria-label").trim().takeIf { it.clearMarkdown().containsVisibleText() }
+                        ?: element.attr("alt").trim().takeIf { it.clearMarkdown().containsVisibleText() }
+                        ?: "").replace("|", " ")
+
+                    parentFigure?.select("figcaption")?.remove()
 
                     element.append("\n[[$src|$alt]]\n")
                 }
@@ -116,7 +123,17 @@ class DocumentParser @Inject constructor(
                             } == true
                         } ?: return@forEach
 
-                    val alt = "Image"
+                    val parentFigure = element.closest("figure") ?: element.parent()
+                    val figcaption = parentFigure?.selectFirst("figcaption")?.text()?.trim()
+                    val title = element.selectFirst("title")?.text()?.trim()
+                        ?: element.attr("aria-label").trim().takeIf { it.containsVisibleText() }
+                        ?: element.attr("title").trim().takeIf { it.containsVisibleText() }
+
+                    val alt = (figcaption?.takeIf { it.containsVisibleText() }
+                        ?: title?.takeIf { it.containsVisibleText() }
+                        ?: "").replace("|", " ")
+
+                    parentFigure?.select("figcaption")?.remove()
 
                     element.append("\n[[$src|$alt]]\n")
                 }
@@ -149,7 +166,8 @@ class DocumentParser @Inject constructor(
                 if (imageRegex.matches(line)) {
                     val trimmedLine = line.removeSurrounding("[[", "]]")
                     val src = trimmedLine.substringBefore("|")
-                    val alt = "_${trimmedLine.substringAfter("|")}_"
+                    val rawAlt = trimmedLine.substringAfter("|").trim()
+                    val caption = rawAlt.takeIf { it.isNotEmpty() && !it.equals("Image", ignoreCase = true) }
 
                     val image = try {
                         val imageEntry = imageEntries?.find { img ->
@@ -163,8 +181,10 @@ class DocumentParser @Inject constructor(
 
                     if (image != null) {
                         image.prepareToDraw()
-                        readerText.add(ReaderText.Image(imageBitmap = image))
-                        readerText.add(ReaderText.Text(markdownParser.parse(alt)))
+                        readerText.add(ReaderText.Image(imageBitmap = image, description = caption))
+                        if (caption != null) {
+                            readerText.add(ReaderText.Text(markdownParser.parse("_${caption}_")))
+                        }
                         return@forEach
                     }
                 }
@@ -190,7 +210,8 @@ class DocumentParser @Inject constructor(
                             } else if (imageRegex.matches(token)) {
                                 val trimmedLine = token.removeSurrounding("[[", "]]")
                                 val src = trimmedLine.substringBefore("|")
-                                val alt = "_${trimmedLine.substringAfter("|")}_"
+                                val rawAlt = trimmedLine.substringAfter("|").trim()
+                                val caption = rawAlt.takeIf { it.isNotEmpty() && !it.equals("Image", ignoreCase = true) }
 
                                 val image = try {
                                     val imageEntry = imageEntries?.find { img ->
@@ -204,8 +225,10 @@ class DocumentParser @Inject constructor(
 
                                 if (image != null) {
                                     image.prepareToDraw()
-                                    readerText.add(ReaderText.Image(imageBitmap = image))
-                                    readerText.add(ReaderText.Text(markdownParser.parse(alt)))
+                                    readerText.add(ReaderText.Image(imageBitmap = image, description = caption))
+                                    if (caption != null) {
+                                        readerText.add(ReaderText.Text(markdownParser.parse("_${caption}_")))
+                                    }
                                 }
                             }
                             lastIndex = match.range.last + 1

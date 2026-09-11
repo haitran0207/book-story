@@ -76,7 +76,8 @@ fun LazyItemScope.ReaderLayoutText(
                 fontColor = fontColor,
                 sidePadding = sidePadding,
                 highlightedReading = highlightedReading,
-                highlightedReadingThickness = highlightedReadingThickness
+                highlightedReadingThickness = highlightedReadingThickness,
+                isReading = isReading
             )
         }
 

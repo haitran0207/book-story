@@ -59,7 +59,8 @@ class ReaderModel @Inject constructor(
     private val resumeReadAloudUseCase: ua.acclorite.book_story.domain.use_case.reader.ResumeReadAloudUseCase,
     private val setReadAloudSpeedUseCase: ua.acclorite.book_story.domain.use_case.reader.SetReadAloudSpeedUseCase,
     private val setReadAloudPitchUseCase: ua.acclorite.book_story.domain.use_case.reader.SetReadAloudPitchUseCase,
-    private val readAloudNotificationManager: ua.acclorite.book_story.data.service.ReadAloudNotificationManager
+    private val readAloudNotificationManager: ua.acclorite.book_story.data.service.ReadAloudNotificationManager,
+    private val settingsManager: ua.acclorite.book_story.data.settings.SettingsManager
 ) : ViewModel() {
 
     private val mutex = Mutex()
@@ -430,8 +431,8 @@ class ReaderModel @Inject constructor(
                         )
                     }
                     val currentIdx = _state.value.readAloudState.currentReadingIndex
-                    val currentText = if (currentIdx != null && currentIdx in _state.value.text.indices) {
-                        (_state.value.text[currentIdx] as? ReaderText.Text)?.line?.text?.trim()?.take(120) ?: ""
+                    val currentText = if (currentIdx != null) {
+                        getReadableItemText(currentIdx, _state.value.text)?.take(120) ?: ""
                     } else ""
                     readAloudNotificationManager.update(
                         bookTitle = _state.value.book.title,
@@ -471,8 +472,8 @@ class ReaderModel @Inject constructor(
                         startReadingLoop(_state.value.readAloudState.currentReadingIndex)
                     } else {
                         val currentIdx = _state.value.readAloudState.currentReadingIndex
-                        val currentText = if (currentIdx != null && currentIdx in _state.value.text.indices) {
-                            (_state.value.text[currentIdx] as? ReaderText.Text)?.line?.text?.trim()?.take(120) ?: ""
+                        val currentText = if (currentIdx != null) {
+                            getReadableItemText(currentIdx, _state.value.text)?.take(120) ?: ""
                         } else ""
                         readAloudNotificationManager.update(
                             bookTitle = _state.value.book.title,
@@ -493,7 +494,7 @@ class ReaderModel @Inject constructor(
                 is ReaderEvent.OnPreviousReadAloudParagraph -> {
                     val currentIdx = _state.value.readAloudState.currentReadingIndex ?: _state.value.listState.firstVisibleItemIndex
                     val allItems = _state.value.text
-                    val prevIdx = allItems.indices.reversed().firstOrNull { it < currentIdx && allItems[it] is ReaderText.Text }
+                    val prevIdx = allItems.indices.reversed().firstOrNull { it < currentIdx && isItemReadable(it, allItems) }
                     if (prevIdx != null) {
                         startReadingLoop(prevIdx)
                     }
@@ -501,7 +502,7 @@ class ReaderModel @Inject constructor(
                 is ReaderEvent.OnNextReadAloudParagraph -> {
                     val currentIdx = _state.value.readAloudState.currentReadingIndex ?: _state.value.listState.firstVisibleItemIndex
                     val allItems = _state.value.text
-                    val nextIdx = allItems.indices.firstOrNull { it > currentIdx && allItems[it] is ReaderText.Text }
+                    val nextIdx = allItems.indices.firstOrNull { it > currentIdx && isItemReadable(it, allItems) }
                     if (nextIdx != null) {
                         startReadingLoop(nextIdx)
                     }
@@ -635,6 +636,46 @@ class ReaderModel @Inject constructor(
         }
     }
 
+    private fun getReadableItemText(index: Int, allItems: List<ReaderText>): String? {
+        if (index !in allItems.indices) return null
+        val item = allItems[index]
+        val previousItem = allItems.getOrNull(index - 1)
+
+        return when (item) {
+            is ReaderText.Chapter -> {
+                item.title.trim().takeIf { it.isNotBlank() }
+            }
+            is ReaderText.Text -> {
+                val text = item.line.text.trim()
+                // If it's an image caption and user disabled image captions in settings, skip
+                if (previousItem is ReaderText.Image && !settingsManager.imagesCaptions.lastValue) {
+                    return null
+                }
+                // Skip empty or dummy placeholder text
+                if (text.isBlank() || text.equals("_Image_", ignoreCase = true) || text.equals("Image", ignoreCase = true)) {
+                    return null
+                }
+                text
+            }
+            is ReaderText.Image -> {
+                val nextItem = allItems.getOrNull(index + 1)
+                // If next item is already a Text caption, let that caption item be read individually.
+                // Otherwise if this image has a description and imagesCaptions is enabled, read it.
+                if (nextItem !is ReaderText.Text && settingsManager.imagesCaptions.lastValue) {
+                    val desc = item.description?.trim()
+                    if (!desc.isNullOrBlank() && !desc.equals("Image", ignoreCase = true)) {
+                        desc
+                    } else null
+                } else null
+            }
+            else -> null
+        }
+    }
+
+    private fun isItemReadable(index: Int, allItems: List<ReaderText>): Boolean {
+        return getReadableItemText(index, allItems) != null
+    }
+
     private fun startReadingLoop(fromIndex: Int? = null) {
         readAloudJob?.cancel()
         readAloudJob = viewModelScope.launch(Dispatchers.Default) {
@@ -645,8 +686,8 @@ class ReaderModel @Inject constructor(
                 ?: _state.value.readAloudState.currentReadingIndex
                 ?: run {
                     val visible = _state.value.listState.firstVisibleItemIndex
-                    val found = allItems.indices.firstOrNull { it >= visible && allItems[it] is ReaderText.Text }
-                    found ?: allItems.indices.firstOrNull { allItems[it] is ReaderText.Text } ?: 0
+                    val found = allItems.indices.firstOrNull { it >= visible && isItemReadable(it, allItems) }
+                    found ?: allItems.indices.firstOrNull { isItemReadable(it, allItems) } ?: 0
                 }
 
             setReadAloudSpeedUseCase(_state.value.readAloudState.speed)
@@ -654,8 +695,8 @@ class ReaderModel @Inject constructor(
 
             var index = startIdx
             while (isActive && index < allItems.size) {
-                val item = allItems[index]
-                if (item is ReaderText.Text && item.line.text.isNotBlank()) {
+                val textToRead = getReadableItemText(index, allItems)
+                if (textToRead != null) {
                     _state.update {
                         it.copy(
                             readAloudState = it.readAloudState.copy(
@@ -667,12 +708,12 @@ class ReaderModel @Inject constructor(
 
                     readAloudNotificationManager.update(
                         bookTitle = _state.value.book.title,
-                        paragraphText = item.line.text.trim().take(120),
+                        paragraphText = textToRead.take(120),
                         isPlaying = true,
                         speed = _state.value.readAloudState.speed
                     )
 
-                    val finished = startReadAloudUseCase(item.line.text)
+                    val finished = startReadAloudUseCase(textToRead)
                     if (!finished || !isActive) {
                         break
                     }

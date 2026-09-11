@@ -28,7 +28,8 @@ sealed class ReaderText {
 
     @Immutable
     data class Image(
-        val imageBitmap: ImageBitmap
+        val imageBitmap: ImageBitmap,
+        val description: String? = null
     ) : ReaderText()
 
     @Immutable
