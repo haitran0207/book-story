@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
 import ua.acclorite.book_story.ui.settings.general.components.AppLanguageOption
+import ua.acclorite.book_story.ui.settings.general.components.CacheLocationOption
 import ua.acclorite.book_story.ui.settings.general.components.DoublePressExitOption
 
 fun LazyListScope.GeneralSettingsCategory(
@@ -28,6 +29,10 @@ fun LazyListScope.GeneralSettingsCategory(
 
     item {
         AppLanguageOption()
+    }
+
+    item {
+        CacheLocationOption()
     }
 
     item {

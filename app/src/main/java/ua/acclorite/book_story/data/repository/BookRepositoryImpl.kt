@@ -9,6 +9,7 @@ package ua.acclorite.book_story.data.repository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ua.acclorite.book_story.core.CoverImage
+import ua.acclorite.book_story.data.cache.BookTextCacheManager
 import ua.acclorite.book_story.data.local.room.BookDatabase
 import ua.acclorite.book_story.data.mapper.book.BookMapper
 import ua.acclorite.book_story.data.mapper.file.FileMapper
@@ -29,7 +30,8 @@ class BookRepositoryImpl @Inject constructor(
     private val fileMapper: FileMapper,
     private val coverParser: CoverParser,
     private val textParser: TextParser,
-    private val fileProvider: FileProvider
+    private val fileProvider: FileProvider,
+    private val bookTextCacheManager: BookTextCacheManager
 ) : BookRepository {
 
     override suspend fun searchBooks(query: String): Result<List<Book>> = runCatching {
@@ -49,9 +51,22 @@ class BookRepositoryImpl @Inject constructor(
 
     override suspend fun getText(bookId: Int): Result<List<ReaderText>> {
         return withContext(Dispatchers.IO) {
-            getBook(bookId)
-                .mapCatching { fileProvider.getFileFromBook(it).getOrThrow() }
-                .mapCatching { textParser.parse(it) }
+            val book = getBook(bookId).getOrThrow()
+            val cachedFile = fileProvider.getFileFromBook(book).getOrThrow()
+            val lastModified = cachedFile.lastModified
+
+            // 1. Try fetching from Dual-Level Cache (L1 Memory / L2 Disk)
+            val cachedText = bookTextCacheManager.get(bookId, lastModified)
+            if (cachedText != null && cachedText.isNotEmpty()) {
+                return@withContext Result.success(cachedText)
+            }
+
+            // 2. Cache miss -> Parse from file
+            val parsedText = textParser.parse(cachedFile)
+            if (parsedText.isNotEmpty()) {
+                bookTextCacheManager.put(bookId, lastModified, parsedText)
+            }
+            Result.success(parsedText)
         }
     }
 
@@ -81,6 +96,7 @@ class BookRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             database.bookDao.deleteBook(bookMapper.toBookEntity(book)).also {
                 if (it == 0) throw Exception("Could not delete book in database.")
+                bookTextCacheManager.evict(book.id)
             }
         }
     }

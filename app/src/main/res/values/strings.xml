@@ -16,6 +16,14 @@
     <string name="settings_screen">Settings</string>
     <string name="about_screen">About app</string>
 
+    <!-- Cache Location -->
+    <string name="cache_location_option">Cache Location</string>
+    <string name="cache_location_internal">Internal Storage</string>
+    <string name="cache_location_sd_card">SD Card</string>
+    <string name="cache_location_sd_card_unavailable">SD Card (Unavailable)</string>
+    <string name="change_cache_folder">Change Folder</string>
+    <string name="current_cache_path">Path: %1$s</string>
+
     <!-- Read Aloud -->
     <string name="read_aloud">Read Aloud</string>
     <string name="play">Play</string>

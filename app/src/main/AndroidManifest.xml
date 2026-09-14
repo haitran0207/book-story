@@ -12,10 +12,9 @@
         android:name="ua.acclorite.book_story.release.debug.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
         tools:node="remove" />
 
-    <!-- Storage permissions for reading books and discovering files in storage & sub-folders -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
+    <!-- Storage permissions for reading books on older Android versions (using SAF on Android 11+) -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" tools:ignore="ScopedStorage" />
 
     <!-- Required for Android 11+ (API 30+) to bind to Text-to-Speech engines -->
     <queries>
@@ -44,8 +43,6 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Splash"
-        android:usesCleartextTraffic="true"
-        android:requestLegacyExternalStorage="true"
         tools:ignore="DataExtractionRules"
         tools:targetApi="tiramisu">
 

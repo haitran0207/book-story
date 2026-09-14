@@ -27,6 +27,7 @@ import ua.acclorite.book_story.core.language.LanguageUtils
 import ua.acclorite.book_story.core.log.logI
 import ua.acclorite.book_story.data.local.data_store.DataStore
 import ua.acclorite.book_story.data.settings.model.Setting
+import ua.acclorite.book_story.domain.model.settings.CacheLocation
 import ua.acclorite.book_story.presentation.browse.model.BrowseLayout
 import ua.acclorite.book_story.presentation.browse.model.BrowseSortOrder
 import ua.acclorite.book_story.presentation.library.model.LibraryLayout
@@ -112,6 +113,22 @@ class SettingsManager @Inject constructor(
     )
     val showNavigationLabels = setting<Boolean, Boolean>(
         key = booleanPreferencesKey("show_navigation_labels"), default = true
+    )
+    val cacheLocation = setting<CacheLocation, String>(
+        key = stringPreferencesKey("cache_location"), default = CacheLocation.INTERNAL,
+        serialize = { it.name }, deserialize = {
+            try {
+                CacheLocation.valueOf(it)
+            } catch (e: Exception) {
+                CacheLocation.INTERNAL
+            }
+        }
+    )
+    val customCacheUri = setting<String, String>(
+        key = stringPreferencesKey("custom_cache_uri"), default = ""
+    )
+    val customCachePath = setting<String, String>(
+        key = stringPreferencesKey("custom_cache_path"), default = ""
     )
 
     /* ------ Reader ----------------------------- */
