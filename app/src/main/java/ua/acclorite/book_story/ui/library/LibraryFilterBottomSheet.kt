@@ -58,13 +58,13 @@ fun LibraryFilterBottomSheet(
                 categories.find { it.id == -1 } ?: Category(id = -1, title = "")
             )
             allTabs.add(
+                categories.find { it.id == -4 } ?: Category(id = -4, title = "")
+            )
+            allTabs.add(
                 categories.find { it.id == -2 } ?: Category(id = -2, title = "")
             )
             allTabs.add(
                 categories.find { it.id == -3 } ?: Category(id = -3, title = "")
-            )
-            allTabs.add(
-                categories.find { it.id == -4 } ?: Category(id = -4, title = "")
             )
             allTabs.addAll(categories.filter { it.id > 0 }.sortedBy { it.order })
 

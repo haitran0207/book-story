@@ -45,6 +45,8 @@
         You can edit Title and Cover image of the book later.
         The loading process can take up to several minutes.
     </string>
+    <string name="adding_books">Adding books…</string>
+    <string name="adding_books_progress">Adding books (%1$d/%2$d)…</string>
     <string name="delete_books_description">
         It will delete all selected books(%1$s) from the database.
         It will not delete selected books from your device.

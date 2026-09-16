@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -298,9 +299,12 @@ class ReaderModel @Inject constructor(
                 }
 
                 is ReaderEvent.OnLeave -> {
+                    val currentReadingIdx = _state.value.readAloudState.currentReadingIndex
+
                     readAloudJob?.cancel()
                     readAloudJob = null
                     stopReadAloudUseCase()
+                    readAloudNotificationManager.stop()
 
                     _state.update {
                         it.copy(
@@ -311,17 +315,27 @@ class ReaderModel @Inject constructor(
 
                     if (
                         !_state.value.isLoading &&
-                        _state.value.listState.layoutInfo.totalItemsCount > 0 &&
                         _state.value.text.isNotEmpty() &&
-                        _state.value.errorMessage != null
+                        _state.value.errorMessage == null
                     ) {
+                        val finalIndex = currentReadingIdx ?: _state.value.listState.firstVisibleItemIndex
+                        val finalOffset = if (currentReadingIdx != null) 0 else _state.value.listState.firstVisibleItemScrollOffset
+                        val finalProgress = calculateProgress(finalIndex)
+                        val (currentChapter, currentChapterProgress) = getChapterProgressUseCase(
+                            index = finalIndex,
+                            text = _state.value.text
+                        )
+
                         _state.update {
                             it.copy(
                                 book = it.book.copy(
-                                    progress = calculateProgress(),
-                                    scrollIndex = _state.value.listState.firstVisibleItemIndex,
-                                    scrollOffset = _state.value.listState.firstVisibleItemScrollOffset
-                                )
+                                    progress = finalProgress,
+                                    scrollIndex = finalIndex,
+                                    scrollOffset = finalOffset,
+                                    lastOpened = System.currentTimeMillis()
+                                ),
+                                currentChapter = currentChapter,
+                                currentChapterProgress = currentChapterProgress
                             )
                         }
 
@@ -425,12 +439,36 @@ class ReaderModel @Inject constructor(
                     readAloudJob?.cancel()
                     readAloudJob = null
                     pauseReadAloudUseCase()
-                    _state.update {
-                        it.copy(
-                            readAloudState = it.readAloudState.copy(isPlaying = false)
-                        )
-                    }
                     val currentIdx = _state.value.readAloudState.currentReadingIndex
+                    if (currentIdx != null && currentIdx in _state.value.text.indices) {
+                        val progress = calculateProgress(currentIdx)
+                        val (currentChapter, currentChapterProgress) = getChapterProgressUseCase(
+                            index = currentIdx,
+                            text = _state.value.text
+                        )
+                        _state.update {
+                            it.copy(
+                                book = it.book.copy(
+                                    progress = progress,
+                                    scrollIndex = currentIdx,
+                                    scrollOffset = 0,
+                                    lastOpened = System.currentTimeMillis()
+                                ),
+                                currentChapter = currentChapter,
+                                currentChapterProgress = currentChapterProgress,
+                                readAloudState = it.readAloudState.copy(isPlaying = false)
+                            )
+                        }
+                        updateBookUseCase(_state.value.book)
+                        LibraryScreen.refreshListChannel.trySend(0)
+                        HistoryScreen.refreshListChannel.trySend(0)
+                    } else {
+                        _state.update {
+                            it.copy(
+                                readAloudState = it.readAloudState.copy(isPlaying = false)
+                            )
+                        }
+                    }
                     val currentText = if (currentIdx != null) {
                         getReadableItemText(currentIdx, _state.value.text)?.take(120) ?: ""
                     } else ""
@@ -448,6 +486,29 @@ class ReaderModel @Inject constructor(
                     startReadingLoop(_state.value.readAloudState.currentReadingIndex)
                 }
                 is ReaderEvent.OnStopReadAloud -> {
+                    val currentIdx = _state.value.readAloudState.currentReadingIndex
+                    if (currentIdx != null && currentIdx in _state.value.text.indices) {
+                        val progress = calculateProgress(currentIdx)
+                        val (currentChapter, currentChapterProgress) = getChapterProgressUseCase(
+                            index = currentIdx,
+                            text = _state.value.text
+                        )
+                        _state.update {
+                            it.copy(
+                                book = it.book.copy(
+                                    progress = progress,
+                                    scrollIndex = currentIdx,
+                                    scrollOffset = 0,
+                                    lastOpened = System.currentTimeMillis()
+                                ),
+                                currentChapter = currentChapter,
+                                currentChapterProgress = currentChapterProgress
+                            )
+                        }
+                        updateBookUseCase(_state.value.book)
+                        LibraryScreen.refreshListChannel.trySend(0)
+                        HistoryScreen.refreshListChannel.trySend(0)
+                    }
                     readAloudJob?.cancel()
                     readAloudJob = null
                     stopReadAloudUseCase()
@@ -570,6 +631,18 @@ class ReaderModel @Inject constructor(
                 _state.value.errorMessage != null
             ) return@collectLatest
 
+            // If Read Aloud is playing, the reading position is driven by Read Aloud.
+            // Do not let listState overwrite reading progress while audio is playing.
+            if (_state.value.readAloudState.isPlaying) {
+                return@collectLatest
+            }
+
+            // If Read Aloud is paused, do not let an older stale listState index overwrite the paused reading position.
+            val currentReadingIdx = _state.value.readAloudState.currentReadingIndex
+            if (currentReadingIdx != null && index < currentReadingIdx) {
+                return@collectLatest
+            }
+
             val progress = calculateProgress(index)
             val (currentChapter, currentChapterProgress) = getChapterProgressUseCase(
                 index = index,
@@ -581,7 +654,8 @@ class ReaderModel @Inject constructor(
                     book = it.book.copy(
                         progress = progress,
                         scrollIndex = index,
-                        scrollOffset = offset
+                        scrollOffset = offset,
+                        lastOpened = System.currentTimeMillis()
                     ),
                     currentChapter = currentChapter,
                     currentChapterProgress = currentChapterProgress
@@ -612,19 +686,28 @@ class ReaderModel @Inject constructor(
     }
 
     private fun calculateProgress(firstVisibleItemIndex: Int? = null): Float {
-        if (
-            _state.value.isLoading ||
-            _state.value.listState.layoutInfo.totalItemsCount == 0 ||
-            _state.value.text.isEmpty() ||
-            _state.value.errorMessage != null
-        ) return _state.value.book.progress
+        if (_state.value.text.isEmpty() || _state.value.errorMessage != null) {
+            return _state.value.book.progress
+        }
 
-        if ((firstVisibleItemIndex ?: _state.value.listState.firstVisibleItemIndex) == 0) return 0f
+        if (firstVisibleItemIndex != null) {
+            if (firstVisibleItemIndex <= 0) return 0f
+            if (firstVisibleItemIndex >= _state.value.text.lastIndex) return 1f
+            return firstVisibleItemIndex
+                .div(_state.value.text.lastIndex.toFloat())
+                .coerceAndPreventNaN()
+        }
 
-        val lastVisibleItemIndex = _state.value.listState.layoutInfo.visibleItemsInfo.last().index
-        if (lastVisibleItemIndex >= _state.value.text.lastIndex) return 1f
+        if (_state.value.isLoading || _state.value.listState.layoutInfo.totalItemsCount == 0) {
+            return _state.value.book.progress
+        }
 
-        return (firstVisibleItemIndex ?: _state.value.listState.firstVisibleItemIndex)
+        if (_state.value.listState.firstVisibleItemIndex == 0) return 0f
+
+        val lastVisibleItemIndex = _state.value.listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index
+        if (lastVisibleItemIndex != null && lastVisibleItemIndex >= _state.value.text.lastIndex) return 1f
+
+        return _state.value.listState.firstVisibleItemIndex
             .div(_state.value.text.lastIndex.toFloat())
             .coerceAndPreventNaN()
     }
@@ -697,14 +780,32 @@ class ReaderModel @Inject constructor(
             while (isActive && index < allItems.size) {
                 val textToRead = getReadableItemText(index, allItems)
                 if (textToRead != null) {
+                    val progress = calculateProgress(index)
+                    val (currentChapter, currentChapterProgress) = getChapterProgressUseCase(
+                        index = index,
+                        text = allItems
+                    )
+
                     _state.update {
                         it.copy(
+                            book = it.book.copy(
+                                progress = progress,
+                                scrollIndex = index,
+                                scrollOffset = 0,
+                                lastOpened = System.currentTimeMillis()
+                            ),
+                            currentChapter = currentChapter,
+                            currentChapterProgress = currentChapterProgress,
                             readAloudState = it.readAloudState.copy(
                                 isPlaying = true,
                                 currentReadingIndex = index
                             )
                         )
                     }
+
+                    updateBookUseCase(_state.value.book)
+                    LibraryScreen.refreshListChannel.trySend(0)
+                    HistoryScreen.refreshListChannel.trySend(0)
 
                     readAloudNotificationManager.update(
                         bookTitle = _state.value.book.title,
@@ -725,18 +826,44 @@ class ReaderModel @Inject constructor(
                 readAloudNotificationManager.stop()
                 _state.update {
                     it.copy(
+                        book = it.book.copy(
+                            progress = 1f,
+                            scrollIndex = allItems.lastIndex.coerceAtLeast(0),
+                            scrollOffset = 0,
+                            lastOpened = System.currentTimeMillis()
+                        ),
                         readAloudState = it.readAloudState.copy(
                             isPlaying = false,
                             currentReadingIndex = null
                         )
                     )
                 }
+                updateBookUseCase(_state.value.book)
+                LibraryScreen.refreshListChannel.trySend(0)
+                HistoryScreen.refreshListChannel.trySend(0)
             }
         }
     }
 
     override fun onCleared() {
         super.onCleared()
+        val currentIdx = _state.value.readAloudState.currentReadingIndex
+        if (currentIdx != null && currentIdx in _state.value.text.indices) {
+            val progress = calculateProgress(currentIdx)
+            val (currentChapter, currentChapterProgress) = getChapterProgressUseCase(
+                index = currentIdx,
+                text = _state.value.text
+            )
+            val updatedBook = _state.value.book.copy(
+                progress = progress,
+                scrollIndex = currentIdx,
+                scrollOffset = 0,
+                lastOpened = System.currentTimeMillis()
+            )
+            runBlocking(Dispatchers.IO) {
+                updateBookUseCase(updatedBook)
+            }
+        }
         readAloudJob?.cancel()
         readAloudJob = null
         stopReadAloudUseCase()

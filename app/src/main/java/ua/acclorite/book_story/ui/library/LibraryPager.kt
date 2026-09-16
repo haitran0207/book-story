@@ -100,7 +100,34 @@ fun LibraryPager(
                 }
             )
 
-            // 2. All Book Tab (id = -2)
+            // 2. Tags Tab (id = -4)
+            val tagsCategory = categories.find { it.id == -4 }
+            val filteredTagsBooks = books.filter { book ->
+                val matchesTag = if (selectedTag.isNullOrBlank()) {
+                    true
+                } else {
+                    book.data.tags.any { it.equals(selectedTag, ignoreCase = true) }
+                }
+                val matchesStatus = when (tagsStatusFilter) {
+                    AllBooksFilter.ALL -> true
+                    AllBooksFilter.NOT_STARTED -> book.data.progress == 0f && book.data.lastOpened == null
+                    AllBooksFilter.PROCESSING -> (book.data.progress > 0f || book.data.lastOpened != null) && book.data.progress < 1f
+                    AllBooksFilter.COMPLETED -> book.data.progress >= 1f
+                }
+                matchesTag && matchesStatus
+            }
+            categorizedBooks.add(
+                if (perCategorySort && tagsCategory != null) {
+                    filteredTagsBooks.sortBooks(
+                        tagsCategory.sortOrder,
+                        tagsCategory.sortOrderDescending
+                    )
+                } else {
+                    filteredTagsBooks
+                }
+            )
+
+            // 3. All Book Tab (id = -2)
             val allBooksCategory = categories.find { it.id == -2 }
             val filteredAllBooks = when (allBooksFilter) {
                 AllBooksFilter.ALL -> books
@@ -125,7 +152,7 @@ fun LibraryPager(
                 }
             )
 
-            // 3. Completed Tab (id = -3)
+            // 4. Completed Tab (id = -3)
             val completedCategory = categories.find { it.id == -3 }
             val completedBooks = books.filter { it.data.progress >= 1f }
             categorizedBooks.add(
@@ -136,33 +163,6 @@ fun LibraryPager(
                     )
                 } else {
                     completedBooks
-                }
-            )
-
-            // 4. Tags Tab (id = -4)
-            val tagsCategory = categories.find { it.id == -4 }
-            val filteredTagsBooks = books.filter { book ->
-                val matchesTag = if (selectedTag.isNullOrBlank()) {
-                    true
-                } else {
-                    book.data.tags.any { it.equals(selectedTag, ignoreCase = true) }
-                }
-                val matchesStatus = when (tagsStatusFilter) {
-                    AllBooksFilter.ALL -> true
-                    AllBooksFilter.NOT_STARTED -> book.data.progress == 0f && book.data.lastOpened == null
-                    AllBooksFilter.PROCESSING -> (book.data.progress > 0f || book.data.lastOpened != null) && book.data.progress < 1f
-                    AllBooksFilter.COMPLETED -> book.data.progress >= 1f
-                }
-                matchesTag && matchesStatus
-            }
-            categorizedBooks.add(
-                if (perCategorySort && tagsCategory != null) {
-                    filteredTagsBooks.sortBooks(
-                        tagsCategory.sortOrder,
-                        tagsCategory.sortOrderDescending
-                    )
-                } else {
-                    filteredTagsBooks
                 }
             )
 
@@ -208,8 +208,8 @@ fun LibraryPager(
             }
         }
 
-        val isAllBooksTab = index == 1
-        val isTagsTab = index == 3
+        val isTagsTab = index == 1
+        val isAllBooksTab = index == 2
 
         val allAvailableTags = remember(books) {
             books.flatMap { it.data.tags }
@@ -270,19 +270,7 @@ fun LibraryPager(
             }
         }
 
-        if (isAllBooksTab) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                AllBooksFilterChips(
-                    selectedFilter = allBooksFilter,
-                    onFilterSelected = { filter ->
-                        onAllBooksFilterChange(LibraryEvent.OnAllBooksFilterChange(filter))
-                    }
-                )
-                Box(modifier = Modifier.weight(1f)) {
-                    content()
-                }
-            }
-        } else if (isTagsTab) {
+        if (isTagsTab) {
             Column(modifier = Modifier.fillMaxSize()) {
                 TagsFilterChips(
                     availableTags = allAvailableTags,
@@ -293,6 +281,18 @@ fun LibraryPager(
                     },
                     onStatusSelected = { status ->
                         onTagsStatusFilterChange(LibraryEvent.OnTagsStatusFilterChange(status))
+                    }
+                )
+                Box(modifier = Modifier.weight(1f)) {
+                    content()
+                }
+            }
+        } else if (isAllBooksTab) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                AllBooksFilterChips(
+                    selectedFilter = allBooksFilter,
+                    onFilterSelected = { filter ->
+                        onAllBooksFilterChange(LibraryEvent.OnAllBooksFilterChange(filter))
                     }
                 )
                 Box(modifier = Modifier.weight(1f)) {

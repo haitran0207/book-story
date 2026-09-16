@@ -59,4 +59,6 @@
     <string name="filter_not_start">Chưa đọc</string>
     <string name="filter_processing">Đang đọc</string>
     <string name="filter_completed">Đã xong</string>
+    <string name="adding_books">Đang thêm sách…</string>
+    <string name="adding_books_progress">Đang thêm sách (%1$d/%2$d)…</string>
 </resources>

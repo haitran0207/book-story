@@ -16,6 +16,8 @@ import ua.acclorite.book_story.presentation.browse.model.SelectableNullableBook
 fun BrowseDialog(
     dialog: Dialog?,
     loadingAddDialog: Boolean,
+    isAddingBooks: Boolean = false,
+    addingBooksProgress: Pair<Int, Int>? = null,
     selectedBooksAddDialog: List<SelectableNullableBook>,
     dismissAddDialog: (BrowseEvent.OnDismissAddDialog) -> Unit,
     actionAddDialog: (BrowseEvent.OnActionAddDialog) -> Unit,
@@ -25,6 +27,8 @@ fun BrowseDialog(
         BrowseScreen.ADD_DIALOG -> {
             BrowseAddDialog(
                 loadingAddDialog = loadingAddDialog,
+                isAddingBooks = isAddingBooks,
+                addingBooksProgress = addingBooksProgress,
                 selectedBooksAddDialog = selectedBooksAddDialog,
                 dismissAddDialog = dismissAddDialog,
                 actionAddDialog = actionAddDialog,

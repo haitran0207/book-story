@@ -48,6 +48,7 @@ import androidx.compose.ui.window.DialogWindowProvider
 import ua.acclorite.book_story.R
 import ua.acclorite.book_story.ui.common.components.common.LazyColumnWithScrollbar
 import ua.acclorite.book_story.ui.common.components.common.StyledText
+import ua.acclorite.book_story.ui.common.components.progress_indicator.CircularProgressIndicator
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,6 +60,7 @@ fun Dialog(
     description: String?,
     disableOnClick: Boolean = true,
     actionEnabled: Boolean?,
+    actionLoading: Boolean = false,
     onDismiss: () -> Unit,
     onAction: () -> Unit,
     secondaryAction: String? = null,
@@ -67,6 +69,7 @@ fun Dialog(
     items: (LazyListScope.() -> Unit) = {}
 ) {
     var actionClicked by remember { mutableStateOf(false) }
+    val dismissBlocked = actionClicked || actionLoading
 
     val imeInsets = WindowInsets.ime.asPaddingValues().let {
         it.calculateTopPadding() + it.calculateBottomPadding()
@@ -90,10 +93,14 @@ fun Dialog(
                 MaterialTheme.shapes.extraLarge
             )
             .padding(top = 24.dp, bottom = 12.dp),
-        onDismissRequest = { onDismiss() },
+        onDismissRequest = {
+            if (!dismissBlocked) {
+                onDismiss()
+            }
+        },
         properties = DialogProperties(
-            dismissOnBackPress = !actionClicked,
-            dismissOnClickOutside = !actionClicked
+            dismissOnBackPress = !dismissBlocked,
+            dismissOnClickOutside = !dismissBlocked
         )
     ) {
         (LocalView.current.parent as DialogWindowProvider).window.setDimAmount(0.5f)
@@ -162,7 +169,7 @@ fun Dialog(
                                     }
                                     onSecondaryAction()
                                 },
-                                enabled = !actionClicked
+                                enabled = !dismissBlocked
                             ) {
                                 StyledText(
                                     text = secondaryAction,
@@ -185,12 +192,13 @@ fun Dialog(
                                     }
                                     onDismiss()
                                 },
-                                enabled = !actionClicked
+                                enabled = !dismissBlocked
                             ) {
                                 StyledText(
                                     text = stringResource(id = R.string.cancel),
                                     style = MaterialTheme.typography.labelLarge.copy(
-                                        color = MaterialTheme.colorScheme.primary
+                                        color = if (!dismissBlocked) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.primary.copy(0.5f)
                                     )
                                 )
                             }
@@ -202,15 +210,22 @@ fun Dialog(
                                     }
                                     onAction()
                                 },
-                                enabled = actionEnabled == true && !actionClicked
+                                enabled = actionEnabled == true && !actionClicked && !actionLoading
                             ) {
-                                StyledText(
-                                    text = stringResource(id = R.string.ok),
-                                    style = MaterialTheme.typography.labelLarge.copy(
-                                        color = if (actionEnabled == true) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.primary.copy(0.5f)
+                                if (actionLoading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.5.dp
                                     )
-                                )
+                                } else {
+                                    StyledText(
+                                        text = stringResource(id = R.string.ok),
+                                        style = MaterialTheme.typography.labelLarge.copy(
+                                            color = if (actionEnabled == true && !actionClicked) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.primary.copy(0.5f)
+                                        )
+                                    )
+                                }
                             }
                         }
                     }

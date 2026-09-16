@@ -6,13 +6,16 @@
 
 package ua.acclorite.book_story.ui.browse
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddChart
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,6 +26,7 @@ import ua.acclorite.book_story.R
 import ua.acclorite.book_story.presentation.browse.BrowseEvent
 import ua.acclorite.book_story.presentation.browse.model.NullableBook
 import ua.acclorite.book_story.presentation.browse.model.SelectableNullableBook
+import ua.acclorite.book_story.ui.common.components.common.StyledText
 import ua.acclorite.book_story.ui.common.components.dialog.Dialog
 import ua.acclorite.book_story.ui.common.components.progress_indicator.CircularProgressIndicator
 import ua.acclorite.book_story.ui.common.helpers.showToast
@@ -30,6 +34,8 @@ import ua.acclorite.book_story.ui.common.helpers.showToast
 @Composable
 fun BrowseAddDialog(
     loadingAddDialog: Boolean,
+    isAddingBooks: Boolean = false,
+    addingBooksProgress: Pair<Int, Int>? = null,
     selectedBooksAddDialog: List<SelectableNullableBook>,
     dismissAddDialog: (BrowseEvent.OnDismissAddDialog) -> Unit,
     actionAddDialog: (BrowseEvent.OnActionAddDialog) -> Unit,
@@ -40,7 +46,8 @@ fun BrowseAddDialog(
         title = stringResource(id = R.string.add_books),
         icon = Icons.Default.AddChart,
         description = stringResource(id = R.string.add_books_description),
-        actionEnabled = !loadingAddDialog && selectedBooksAddDialog.any { it.data is NullableBook.NotNull },
+        actionEnabled = !loadingAddDialog && !isAddingBooks && selectedBooksAddDialog.any { it.data is NullableBook.NotNull },
+        actionLoading = isAddingBooks,
         onDismiss = { dismissAddDialog(BrowseEvent.OnDismissAddDialog) },
         onAction = {
             actionAddDialog(BrowseEvent.OnActionAddDialog)
@@ -58,6 +65,34 @@ fun BrowseAddDialog(
                             modifier = Modifier
                                 .align(Alignment.Center)
                                 .size(36.dp)
+                        )
+                    }
+                }
+            } else if (isAddingBooks) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp, horizontal = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(44.dp)
+                        )
+                        StyledText(
+                            text = if (addingBooksProgress != null && addingBooksProgress.second > 1) {
+                                stringResource(
+                                    id = R.string.adding_books_progress,
+                                    addingBooksProgress.first,
+                                    addingBooksProgress.second
+                                )
+                            } else {
+                                stringResource(id = R.string.adding_books)
+                            },
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
                         )
                     }
                 }

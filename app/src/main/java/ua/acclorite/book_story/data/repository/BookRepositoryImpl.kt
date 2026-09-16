@@ -9,6 +9,7 @@ package ua.acclorite.book_story.data.repository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ua.acclorite.book_story.core.CoverImage
+import ua.acclorite.book_story.core.log.logI
 import ua.acclorite.book_story.data.cache.BookTextCacheManager
 import ua.acclorite.book_story.data.local.room.BookDatabase
 import ua.acclorite.book_story.data.mapper.book.BookMapper
@@ -22,6 +23,8 @@ import ua.acclorite.book_story.domain.repository.BookRepository
 import ua.acclorite.book_story.domain.service.FileProvider
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val TAG = "BookRepository"
 
 @Singleton
 class BookRepositoryImpl @Inject constructor(
@@ -51,17 +54,30 @@ class BookRepositoryImpl @Inject constructor(
 
     override suspend fun getText(bookId: Int): Result<List<ReaderText>> {
         return withContext(Dispatchers.IO) {
+            // 1. Dual-Level Cache First (L1 Memory / L2 Disk)
+            // Instant load (0-30ms) when continuing reading without file access delay
+            val cachedText = bookTextCacheManager.get(bookId, lastModified = 0L)
+            if (cachedText != null && cachedText.isNotEmpty()) {
+                logI(TAG, "Instant cache hit for book [$bookId].")
+                return@withContext Result.success(cachedText)
+            }
+
+            // 2. Cache miss -> Retrieve file (fast direct SAF / self-healing)
             val book = getBook(bookId).getOrThrow()
             val cachedFile = fileProvider.getFileFromBook(book).getOrThrow()
             val lastModified = cachedFile.lastModified
 
-            // 1. Try fetching from Dual-Level Cache (L1 Memory / L2 Disk)
-            val cachedText = bookTextCacheManager.get(bookId, lastModified)
-            if (cachedText != null && cachedText.isNotEmpty()) {
-                return@withContext Result.success(cachedText)
+            // 3. Self-heal database path if resolved path differs
+            if (cachedFile.path.isNotBlank() && cachedFile.path != book.filePath) {
+                logI(TAG, "Self-healing book [$bookId] path from [${book.filePath}] to [${cachedFile.path}]")
+                runCatching {
+                    database.bookDao.updateBook(
+                        bookMapper.toBookEntity(book.copy(filePath = cachedFile.path))
+                    )
+                }
             }
 
-            // 2. Cache miss -> Parse from file
+            // 4. Parse from file
             val parsedText = textParser.parse(cachedFile)
             if (parsedText.isNotEmpty()) {
                 bookTextCacheManager.put(bookId, lastModified, parsedText)
@@ -72,9 +88,16 @@ class BookRepositoryImpl @Inject constructor(
 
     override suspend fun getFileFromBook(bookId: Int): Result<File> {
         return withContext(Dispatchers.IO) {
-            getBook(bookId)
-                .mapCatching { fileProvider.getFileFromBook(it).getOrThrow() }
-                .mapCatching { fileMapper.toFile(it) }
+            val book = getBook(bookId).getOrThrow()
+            val cachedFile = fileProvider.getFileFromBook(book).getOrThrow()
+            if (cachedFile.path.isNotBlank() && cachedFile.path != book.filePath) {
+                runCatching {
+                    database.bookDao.updateBook(
+                        bookMapper.toBookEntity(book.copy(filePath = cachedFile.path))
+                    )
+                }
+            }
+            Result.success(fileMapper.toFile(cachedFile))
         }
     }
 
@@ -103,8 +126,15 @@ class BookRepositoryImpl @Inject constructor(
 
     override suspend fun getDefaultCover(book: Book): Result<CoverImage?> = runCatching {
         return withContext(Dispatchers.IO) {
-            fileProvider.getFileFromBook(book).mapCatching {
-                coverParser.parse(it)
+            fileProvider.getFileFromBook(book).mapCatching { cachedFile ->
+                if (cachedFile.path.isNotBlank() && cachedFile.path != book.filePath) {
+                    runCatching {
+                        database.bookDao.updateBook(
+                            bookMapper.toBookEntity(book.copy(filePath = cachedFile.path))
+                        )
+                    }
+                }
+                coverParser.parse(cachedFile)
             }
         }
     }

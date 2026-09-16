@@ -26,6 +26,8 @@ fun BrowseContent(
     selectedBooksAddDialog: List<SelectableNullableBook>,
     refreshState: PullRefreshState,
     loadingAddDialog: Boolean,
+    isAddingBooks: Boolean = false,
+    addingBooksProgress: Pair<Int, Int>? = null,
     dialog: Dialog?,
     bottomSheet: BottomSheet?,
     listState: LazyListState,
@@ -68,6 +70,8 @@ fun BrowseContent(
     BrowseDialog(
         dialog = dialog,
         loadingAddDialog = loadingAddDialog,
+        isAddingBooks = isAddingBooks,
+        addingBooksProgress = addingBooksProgress,
         actionAddDialog = actionAddDialog,
         dismissAddDialog = dismissAddDialog,
         selectedBooksAddDialog = selectedBooksAddDialog,

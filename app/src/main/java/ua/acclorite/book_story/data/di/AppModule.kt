@@ -19,6 +19,8 @@ import org.commonmark.node.HtmlBlock
 import org.commonmark.node.IndentedCodeBlock
 import org.commonmark.node.ThematicBreak
 import org.commonmark.parser.Parser
+import com.anggrayudi.storage.file.DocumentFileCompat
+import com.anggrayudi.storage.file.getAbsolutePath
 import ua.acclorite.book_story.data.local.room.BookDatabase
 import ua.acclorite.book_story.data.local.room.DatabaseHelper
 import javax.inject.Singleton
@@ -68,6 +70,28 @@ object AppModule {
             database.categoryDao.ensureAllBooksCategory()
             database.categoryDao.ensureCompletedCategory()
             database.categoryDao.ensureTagsCategory()
+
+            // Self-heal stale SD card paths when volume UUID changed after format/swap
+            try {
+                val db = database.openHelper.writableDatabase
+                val permissions = app.contentResolver.persistedUriPermissions
+                for (perm in permissions) {
+                    val rootDoc = DocumentFileCompat.fromUri(app, perm.uri)
+                    val rootPath = rootDoc?.getAbsolutePath(app).orEmpty()
+                    if (rootPath.isNotBlank() && rootPath.startsWith("/storage/")) {
+                        db.execSQL(
+                            "UPDATE BookEntity SET filePath = ? || substr(filePath, length('/storage/0000-0000/Book') + 1) WHERE filePath LIKE '/storage/0000-0000/Book/%'",
+                            arrayOf(rootPath)
+                        )
+                        db.execSQL(
+                            "UPDATE BookEntity SET filePath = ? || substr(filePath, length('/storage/0000-0000/0. Book') + 1) WHERE filePath LIKE '/storage/0000-0000/0. Book/%'",
+                            arrayOf(rootPath)
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 }

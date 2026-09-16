@@ -290,6 +290,7 @@ class BrowseModel @Inject constructor(
                 }
 
                 is BrowseEvent.OnDismissAddDialog -> {
+                    if (_state.value.isAddingBooks) return@launch
                     _state.update {
                         it.copy(
                             dialog = null
@@ -300,34 +301,58 @@ class BrowseModel @Inject constructor(
 
                 is BrowseEvent.OnActionAddDialog -> {
                     withContext(Dispatchers.Default) {
-                        _state.value.selectedBooksAddDialog.mapNotNull {
+                        val booksToAdd = _state.value.selectedBooksAddDialog.mapNotNull {
                             if (it.data is NullableBook.NotNull && it.selected) return@mapNotNull it.data
                             return@mapNotNull null
-                        }.ifEmpty { return@withContext }.forEach { nullableBook ->
-                            addBookUseCase(
-                                nullableBook.book,
-                                nullableBook.coverImage
-                            )
                         }
+                        if (booksToAdd.isEmpty()) return@withContext
 
-                        LibraryScreen.refreshListChannel.trySend(0)
-                        LibraryScreen.scrollToPageCompositionChannel.trySend(0)
+                        try {
+                            _state.update {
+                                it.copy(
+                                    isAddingBooks = true,
+                                    addingBooksProgress = 0 to booksToAdd.size
+                                )
+                            }
 
-                        _effects.emit(BrowseEffect.OnNavigateToLibrary)
-                        _effects.emit(BrowseEffect.OnBooksAdded)
+                            booksToAdd.forEachIndexed { index, nullableBook ->
+                                _state.update {
+                                    it.copy(
+                                        addingBooksProgress = (index + 1) to booksToAdd.size
+                                    )
+                                }
+                                addBookUseCase(
+                                    nullableBook.book,
+                                    nullableBook.coverImage
+                                )
+                            }
 
-                        _state.update {
-                            it.copy(
-                                dialog = null
+                            LibraryScreen.refreshListChannel.trySend(0)
+                            LibraryScreen.scrollToPageCompositionChannel.trySend(0)
+
+                            _effects.emit(BrowseEffect.OnNavigateToLibrary)
+                            _effects.emit(BrowseEffect.OnBooksAdded)
+
+                            _state.update {
+                                it.copy(
+                                    dialog = null
+                                )
+                            }
+                            onEvent(
+                                BrowseEvent.OnRefreshList(
+                                    loading = false,
+                                    hideSearch = false
+                                )
                             )
+                            onEvent(BrowseEvent.OnClearSelectedFiles)
+                        } finally {
+                            _state.update {
+                                it.copy(
+                                    isAddingBooks = false,
+                                    addingBooksProgress = null
+                                )
+                            }
                         }
-                        onEvent(
-                            BrowseEvent.OnRefreshList(
-                                loading = false,
-                                hideSearch = false
-                            )
-                        )
-                        onEvent(BrowseEvent.OnClearSelectedFiles)
                     }
                 }
 
@@ -360,6 +385,7 @@ class BrowseModel @Inject constructor(
                 }
 
                 is BrowseEvent.OnDismissDialog -> {
+                    if (_state.value.isAddingBooks) return@launch
                     _state.update {
                         it.copy(
                             dialog = null

@@ -143,6 +143,8 @@ object BrowseScreen : Screen, Parcelable {
             selectedBooksAddDialog = state.value.selectedBooksAddDialog,
             refreshState = refreshState,
             loadingAddDialog = state.value.loadingAddDialog,
+            isAddingBooks = state.value.isAddingBooks,
+            addingBooksProgress = state.value.addingBooksProgress,
             dialog = state.value.dialog,
             bottomSheet = state.value.bottomSheet,
             listState = listState,

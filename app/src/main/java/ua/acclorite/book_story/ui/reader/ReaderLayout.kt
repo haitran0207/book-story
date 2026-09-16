@@ -113,7 +113,11 @@ fun ReaderLayout(
 
         if (index <= firstVisible || index >= lastVisible - 1) {
             try {
-                listState.animateScrollToItem(index)
+                if (kotlin.math.abs(index - firstVisible) > 5) {
+                    listState.requestScrollToItem(index)
+                } else {
+                    listState.animateScrollToItem(index)
+                }
             } catch (_: Exception) {
                 listState.requestScrollToItem(index)
             }

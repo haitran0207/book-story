@@ -32,5 +32,7 @@ data class BrowseState(
     val bottomSheet: BottomSheet? = null,
 
     val selectedBooksAddDialog: List<SelectableNullableBook> = emptyList(),
-    val loadingAddDialog: Boolean = false
+    val loadingAddDialog: Boolean = false,
+    val isAddingBooks: Boolean = false,
+    val addingBooksProgress: Pair<Int, Int>? = null
 )

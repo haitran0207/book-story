@@ -109,30 +109,7 @@ fun LibraryTopBar(
             }
             list.add(processCategory to inProcessBooks)
 
-            // 2. All Book Tab (id = -2): all books with filter
-            val allBooksCategory = categories.find { it.id == -2 }?.copy(title = allBooksCategoryTitle)
-                ?: Category(id = -2, title = allBooksCategoryTitle)
-            val filteredAllBooks = when (allBooksFilter) {
-                AllBooksFilter.ALL -> books
-                AllBooksFilter.NOT_STARTED -> books.filter {
-                    it.data.progress == 0f && it.data.lastOpened == null
-                }
-                AllBooksFilter.PROCESSING -> books.filter {
-                    (it.data.progress > 0f || it.data.lastOpened != null) && it.data.progress < 1f
-                }
-                AllBooksFilter.COMPLETED -> books.filter {
-                    it.data.progress >= 1f
-                }
-            }
-            list.add(allBooksCategory to filteredAllBooks)
-
-            // 3. Completed Tab (id = -3): completed books
-            val completedCategory = categories.find { it.id == -3 }?.copy(title = completedCategoryTitle)
-                ?: Category(id = -3, title = completedCategoryTitle)
-            val completedBooks = books.filter { it.data.progress >= 1f }
-            list.add(completedCategory to completedBooks)
-
-            // 4. Tags Tab (id = -4): all books with tags and status filter
+            // 2. Tags Tab (id = -4): all books with tags and status filter
             val tagsCategory = categories.find { it.id == -4 }?.copy(title = tagsCategoryTitle)
                 ?: Category(id = -4, title = tagsCategoryTitle)
             val filteredTagsBooks = books.filter { book ->
@@ -150,6 +127,29 @@ fun LibraryTopBar(
                 matchesTag && matchesStatus
             }
             list.add(tagsCategory to filteredTagsBooks)
+
+            // 3. All Book Tab (id = -2): all books with filter
+            val allBooksCategory = categories.find { it.id == -2 }?.copy(title = allBooksCategoryTitle)
+                ?: Category(id = -2, title = allBooksCategoryTitle)
+            val filteredAllBooks = when (allBooksFilter) {
+                AllBooksFilter.ALL -> books
+                AllBooksFilter.NOT_STARTED -> books.filter {
+                    it.data.progress == 0f && it.data.lastOpened == null
+                }
+                AllBooksFilter.PROCESSING -> books.filter {
+                    (it.data.progress > 0f || it.data.lastOpened != null) && it.data.progress < 1f
+                }
+                AllBooksFilter.COMPLETED -> books.filter {
+                    it.data.progress >= 1f
+                }
+            }
+            list.add(allBooksCategory to filteredAllBooks)
+
+            // 4. Completed Tab (id = -3): completed books
+            val completedCategory = categories.find { it.id == -3 }?.copy(title = completedCategoryTitle)
+                ?: Category(id = -3, title = completedCategoryTitle)
+            val completedBooks = books.filter { it.data.progress >= 1f }
+            list.add(completedCategory to completedBooks)
 
             // 5. Custom Categories (id > 0)
             categories.filter { it.id > 0 }.sortedBy { it.order }.forEach { category ->
