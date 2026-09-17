@@ -7,9 +7,12 @@
 package ua.acclorite.book_story.data.parser.text
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
 import ua.acclorite.book_story.core.log.logE
 import ua.acclorite.book_story.data.model.file.CachedFile
+import ua.acclorite.book_story.domain.model.reader.ParseChunk
 import ua.acclorite.book_story.domain.model.reader.ReaderText
 import javax.inject.Inject
 
@@ -26,6 +29,20 @@ class TextParserImpl @Inject constructor(
     private val xmlTextParser: XmlTextParser,
     private val mobiTextParser: MobiTextParser
 ) : TextParser {
+
+    override fun parseProgressive(cachedFile: CachedFile): Flow<ParseChunk> {
+        if (!cachedFile.canAccess()) {
+            logE(TAG, "File does not exist or no read access is granted.")
+            return flowOf(ParseChunk(emptyList(), isFirstChunk = true, isLastChunk = true))
+        }
+
+        val fileFormat = ".${cachedFile.name.substringAfterLast(".")}".lowercase().trim()
+        return when (fileFormat) {
+            ".epub" -> epubTextParser.parseProgressive(cachedFile)
+            ".txt" -> txtTextParser.parseProgressive(cachedFile)
+            else -> super.parseProgressive(cachedFile)
+        }
+    }
 
     override suspend fun parse(cachedFile: CachedFile): List<ReaderText> {
         if (!cachedFile.canAccess()) {

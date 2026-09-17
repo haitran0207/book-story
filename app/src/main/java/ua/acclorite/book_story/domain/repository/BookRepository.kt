@@ -6,9 +6,11 @@
 
 package ua.acclorite.book_story.domain.repository
 
+import kotlinx.coroutines.flow.Flow
 import ua.acclorite.book_story.core.CoverImage
 import ua.acclorite.book_story.domain.model.file.File
 import ua.acclorite.book_story.domain.model.library.Book
+import ua.acclorite.book_story.domain.model.reader.ParseChunk
 import ua.acclorite.book_story.domain.model.reader.ReaderText
 
 interface BookRepository {
@@ -23,6 +25,10 @@ interface BookRepository {
     suspend fun getText(
         bookId: Int
     ): Result<List<ReaderText>>
+
+    fun getTextProgressive(
+        bookId: Int
+    ): Flow<ParseChunk>
 
     suspend fun getFileFromBook(
         bookId: Int

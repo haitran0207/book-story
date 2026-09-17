@@ -6,8 +6,11 @@
 
 package ua.acclorite.book_story.domain.use_case.book
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import ua.acclorite.book_story.core.log.logE
 import ua.acclorite.book_story.core.log.logI
+import ua.acclorite.book_story.domain.model.reader.ParseChunk
 import ua.acclorite.book_story.domain.model.reader.ReaderText
 import ua.acclorite.book_story.domain.repository.BookRepository
 import javax.inject.Inject
@@ -17,6 +20,12 @@ private const val TAG = "GetText"
 class GetTextUseCase @Inject constructor(
     private val bookRepository: BookRepository
 ) {
+
+    fun getProgressive(bookId: Int): Flow<ParseChunk> {
+        logI(TAG, "Getting progressive text from: [$bookId].")
+        if (bookId == -1) return flowOf(ParseChunk(emptyList(), isFirstChunk = true, isLastChunk = true))
+        return bookRepository.getTextProgressive(bookId)
+    }
 
     suspend operator fun invoke(bookId: Int): List<ReaderText> {
         logI(TAG, "Getting text from: [$bookId].")

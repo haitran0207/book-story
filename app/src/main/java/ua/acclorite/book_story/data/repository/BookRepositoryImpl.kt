@@ -7,6 +7,9 @@
 package ua.acclorite.book_story.data.repository
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import ua.acclorite.book_story.core.CoverImage
 import ua.acclorite.book_story.core.log.logI
@@ -18,6 +21,7 @@ import ua.acclorite.book_story.data.parser.cover.CoverParser
 import ua.acclorite.book_story.data.parser.text.TextParser
 import ua.acclorite.book_story.domain.model.file.File
 import ua.acclorite.book_story.domain.model.library.Book
+import ua.acclorite.book_story.domain.model.reader.ParseChunk
 import ua.acclorite.book_story.domain.model.reader.ReaderText
 import ua.acclorite.book_story.domain.repository.BookRepository
 import ua.acclorite.book_story.domain.service.FileProvider
@@ -85,6 +89,53 @@ class BookRepositoryImpl @Inject constructor(
             Result.success(parsedText)
         }
     }
+
+    override fun getTextProgressive(bookId: Int): Flow<ParseChunk> = flow {
+        // 1. Dual-Level Cache First (L1 Memory / L2 Disk)
+        // Instant load (0-30ms) when continuing reading without file access delay
+        val cachedText = bookTextCacheManager.get(bookId, lastModified = 0L)
+        if (cachedText != null && cachedText.isNotEmpty()) {
+            logI(TAG, "Instant cache hit for book [$bookId] in progressive loader.")
+            emit(
+                ParseChunk(
+                    items = cachedText,
+                    isFirstChunk = true,
+                    isLastChunk = true,
+                    totalChaptersEstimated = 1,
+                    currentChapterParsed = 1
+                )
+            )
+            return@flow
+        }
+
+        // 2. Cache miss -> Retrieve file (fast direct SAF / self-healing)
+        val book = getBook(bookId).getOrThrow()
+        val cachedFile = fileProvider.getFileFromBook(book).getOrThrow()
+        val lastModified = cachedFile.lastModified
+
+        // 3. Self-heal database path if resolved path differs
+        if (cachedFile.path.isNotBlank() && cachedFile.path != book.filePath) {
+            logI(TAG, "Self-healing book [$bookId] path from [${book.filePath}] to [${cachedFile.path}]")
+            runCatching {
+                database.bookDao.updateBook(
+                    bookMapper.toBookEntity(book.copy(filePath = cachedFile.path))
+                )
+            }
+        }
+
+        // 4. Progressive Parse from file & accumulate for caching
+        val accumulatedText = mutableListOf<ReaderText>()
+        textParser.parseProgressive(cachedFile).collect { chunk ->
+            accumulatedText.addAll(chunk.items)
+            emit(chunk)
+
+            if (chunk.isLastChunk && accumulatedText.isNotEmpty()) {
+                // Background cache write when fully parsed
+                bookTextCacheManager.put(bookId, lastModified, accumulatedText)
+                logI(TAG, "Saved full book [$bookId] text to cache (${accumulatedText.size} items).")
+            }
+        }
+    }.flowOn(Dispatchers.IO)
 
     override suspend fun getFileFromBook(bookId: Int): Result<File> {
         return withContext(Dispatchers.IO) {

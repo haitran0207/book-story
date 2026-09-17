@@ -105,56 +105,84 @@ class ReaderModel @Inject constructor(
             when (event) {
                 is ReaderEvent.OnLoadText -> {
                     withContext(Dispatchers.Default) {
-                        val text = getTextUseCase(_state.value.book.id)
-                        ensureActive()
-
-                        if (text.isEmpty()) {
-                            _state.update {
-                                it.copy(
-                                    isLoading = false,
-                                    errorMessage = UIText.StringResource(
-                                        resId = R.string.error_could_not_get_text
-                                    )
-                                )
-                            }
-                            _effects.emit(ReaderEffect.OnSystemBarsVisibility(show = true))
-                            return@withContext
-                        }
-
-                        _effects.emit(ReaderEffect.OnSystemBarsVisibility(show = null))
-
                         val lastOpened = getHistoryForBookUseCase(_state.value.book.id)?.time
-                        _state.update {
-                            it.copy(
-                                showMenu = false,
-                                book = it.book.copy(
-                                    lastOpened = lastOpened
-                                ),
-                                text = text
-                            )
+                        var isFirstChunkHandled = false
+                        var restoredToSavedScrollIndex = false
+
+                        getTextUseCase.getProgressive(_state.value.book.id).collect { chunk ->
+                            ensureActive()
+
+                            if (chunk.isFirstChunk) {
+                                if (chunk.items.isEmpty()) {
+                                    _state.update {
+                                        it.copy(
+                                            isLoading = false,
+                                            errorMessage = UIText.StringResource(
+                                                resId = R.string.error_could_not_get_text
+                                            )
+                                        )
+                                    }
+                                    _effects.emit(ReaderEffect.OnSystemBarsVisibility(show = true))
+                                    return@collect
+                                }
+
+                                _effects.emit(ReaderEffect.OnSystemBarsVisibility(show = null))
+
+                                _state.update {
+                                    it.copy(
+                                        showMenu = false,
+                                        book = it.book.copy(
+                                            lastOpened = lastOpened
+                                        ),
+                                        text = chunk.items
+                                    )
+                                }
+                                ensureActive()
+
+                                updateBookUseCase(_state.value.book)
+
+                                LibraryScreen.refreshListChannel.trySend(0)
+                                HistoryScreen.refreshListChannel.trySend(0)
+
+                                onEvent(ReaderEvent.OnRestoreScroll)
+                                isFirstChunkHandled = true
+                                if (_state.value.book.scrollIndex in chunk.items.indices) {
+                                    restoredToSavedScrollIndex = true
+                                }
+                            } else {
+                                if (chunk.items.isNotEmpty()) {
+                                    _state.update {
+                                        it.copy(text = it.text + chunk.items)
+                                    }
+                                    if (!restoredToSavedScrollIndex && _state.value.book.scrollIndex in _state.value.text.indices) {
+                                        _state.value.listState.requestScrollToItem(
+                                            index = _state.value.book.scrollIndex,
+                                            scrollOffset = _state.value.book.scrollOffset
+                                        )
+                                        restoredToSavedScrollIndex = true
+                                        onEvent(ReaderEvent.OnUpdateChapter(_state.value.book.scrollIndex))
+                                    }
+                                }
+                            }
                         }
-                        ensureActive()
-
-                        updateBookUseCase(_state.value.book)
-
-                        LibraryScreen.refreshListChannel.trySend(0)
-                        HistoryScreen.refreshListChannel.trySend(0)
-
-                        onEvent(ReaderEvent.OnRestoreScroll)
                     }
                 }
 
                 is ReaderEvent.OnRestoreScroll -> {
                     snapshotFlow { _state.value.listState.layoutInfo.totalItemsCount }.first { it > 0 }
 
+                    val maxIndex = (_state.value.text.size - 1).coerceAtLeast(0)
+                    val targetIndex = _state.value.book.scrollIndex.coerceIn(0, maxIndex)
+                    val targetOffset = if (targetIndex == _state.value.book.scrollIndex) _state.value.book.scrollOffset else 0
+
                     _state.value.listState.requestScrollToItem(
-                        index = _state.value.book.scrollIndex,
-                        scrollOffset = _state.value.book.scrollOffset
+                        index = targetIndex,
+                        scrollOffset = targetOffset
                     )
 
                     _state.update {
                         val (currentChapter, currentChapterProgress) = getChapterProgressUseCase(
-                            it.book.scrollIndex,
+                            targetIndex,
                             it.text
                         )
                         it.copy(

@@ -13,6 +13,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.jsoup.Jsoup
@@ -25,6 +29,7 @@ import ua.acclorite.book_story.core.log.logI
 import ua.acclorite.book_story.core.log.logW
 import ua.acclorite.book_story.data.model.file.CachedFile
 import ua.acclorite.book_story.data.parser.document.DocumentParser
+import ua.acclorite.book_story.domain.model.reader.ParseChunk
 import ua.acclorite.book_story.domain.model.reader.ReaderText
 import java.io.File
 import java.net.URLDecoder
@@ -42,6 +47,94 @@ private val dispatcher = Dispatchers.IO.limitedParallelism(3)
 class EpubTextParser @Inject constructor(
     private val documentParser: DocumentParser
 ) : TextParser {
+
+    override fun parseProgressive(cachedFile: CachedFile): Flow<ParseChunk> = flow {
+        logI(TAG, "Started progressive EPUB parsing: ${cachedFile.name}.")
+        val rawFile = cachedFile.rawFile
+        if (rawFile == null || !rawFile.exists() || !rawFile.canRead()) {
+            emit(ParseChunk(emptyList(), isFirstChunk = true, isLastChunk = true))
+            return@flow
+        }
+
+        ZipFile(rawFile).use { zip ->
+            val entriesList = zip.entries().toList()
+            val tocEntry = entriesList.find { entry ->
+                entry.name.endsWith(".ncx", ignoreCase = true)
+            }
+            val opfEntry = entriesList.find { entry ->
+                entry.name.endsWith(".opf", ignoreCase = true)
+            }
+
+            val chapterEntries = zip.getChapterEntries(opfEntry)
+            val imageEntries = entriesList.filter {
+                ExtensionsData.imageExtensions.any { format ->
+                    it.name.endsWith(format, ignoreCase = true)
+                }
+            }
+            val chapterTitleEntries = zip.getChapterTitleMapFromToc(tocEntry)
+            val totalChapters = chapterEntries.size
+
+            logI(TAG, "Progressive EPUB: Total chapters = $totalChapters")
+            if (totalChapters == 0) {
+                emit(ParseChunk(emptyList(), isFirstChunk = true, isLastChunk = true))
+                return@use
+            }
+
+            // Batch 1: Initial Priority Chunk (First 2-3 chapters for instantaneous render)
+            val initialBatchSize = 3.coerceAtMost(totalChapters)
+            val firstBatch = zip.parseChapterBatch(
+                startIndex = 0,
+                entries = chapterEntries.subList(0, initialBatchSize),
+                imageEntries = imageEntries,
+                chapterTitleEntries = chapterTitleEntries
+            )
+
+            val isOnlyOneBatch = initialBatchSize >= totalChapters
+            emit(
+                ParseChunk(
+                    items = firstBatch,
+                    isFirstChunk = true,
+                    isLastChunk = isOnlyOneBatch,
+                    totalChaptersEstimated = totalChapters,
+                    currentChapterParsed = initialBatchSize
+                )
+            )
+
+            if (isOnlyOneBatch) return@use
+
+            // Subsequent Batches: Parse remaining chapters in batches of 5 in background
+            val batchSize = 5
+            var currentIndex = initialBatchSize
+            while (currentIndex < totalChapters) {
+                yield()
+                val nextBatchEnd = (currentIndex + batchSize).coerceAtMost(totalChapters)
+                val batchEntries = chapterEntries.subList(currentIndex, nextBatchEnd)
+
+                val batchItems = zip.parseChapterBatch(
+                    startIndex = currentIndex,
+                    entries = batchEntries,
+                    imageEntries = imageEntries,
+                    chapterTitleEntries = chapterTitleEntries
+                )
+
+                currentIndex = nextBatchEnd
+                val isLast = currentIndex >= totalChapters
+
+                if (batchItems.isNotEmpty() || isLast) {
+                    emit(
+                        ParseChunk(
+                            items = batchItems,
+                            isFirstChunk = false,
+                            isLastChunk = isLast,
+                            totalChaptersEstimated = totalChapters,
+                            currentChapterParsed = currentIndex
+                        )
+                    )
+                }
+            }
+            logI(TAG, "Finished progressive EPUB parsing: ${cachedFile.name}.")
+        }
+    }.flowOn(Dispatchers.IO)
 
     override suspend fun parse(cachedFile: CachedFile): List<ReaderText> {
         logI(TAG, "Started EPUB parsing: ${cachedFile.name}.")
@@ -99,6 +192,38 @@ class EpubTextParser @Inject constructor(
             logE(TAG, "Could not parse text with message: ${e.message}.")
             emptyList()
         }
+    }
+
+    /**
+     * Parses a batch of [entries] asynchronously with index ordering.
+     */
+    private suspend fun ZipFile.parseChapterBatch(
+        startIndex: Int,
+        entries: List<ZipEntry>,
+        imageEntries: List<ZipEntry>,
+        chapterTitleEntries: Map<Source, ReaderText.Chapter>?
+    ): List<ReaderText> {
+        val unformattedText = ConcurrentLinkedQueue<Pair<Int, List<ReaderText>>>()
+        coroutineScope {
+            entries.mapIndexed { offset, entry ->
+                val absoluteIndex = startIndex + offset
+                async(dispatcher) {
+                    yield()
+                    unformattedText.parseZipEntry(
+                        zip = this@parseChapterBatch,
+                        index = absoluteIndex,
+                        entry = entry,
+                        imageEntries = imageEntries,
+                        chapterTitleMap = chapterTitleEntries
+                    )
+                    yield()
+                }
+            }.awaitAll()
+        }
+        return unformattedText.toList()
+            .sortedBy { (index, _) -> index }
+            .map { it.second }
+            .flatten()
     }
 
     /**
