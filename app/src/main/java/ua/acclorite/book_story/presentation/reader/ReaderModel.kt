@@ -14,6 +14,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
@@ -69,8 +70,17 @@ class ReaderModel @Inject constructor(
     private val _state = MutableStateFlow(ReaderState())
     val state = _state.asStateFlow()
 
-    private val _effects = MutableSharedFlow<ReaderEffect>()
+    private val _effects = MutableSharedFlow<ReaderEffect>(
+        extraBufferCapacity = 64,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
     val effects = _effects.asSharedFlow()
+
+    private var initialTargetScrollIndex: Int = 0
+    private var initialTargetScrollOffset: Int = 0
+    private var initialTargetProgress: Float = 0f
+    private var hasRestoredScroll: Boolean = false
+    private var isFullyLoaded: Boolean = false
 
     private var scrollJob: Job? = null
     private var readAloudJob: Job? = null
@@ -106,8 +116,6 @@ class ReaderModel @Inject constructor(
                 is ReaderEvent.OnLoadText -> {
                     withContext(Dispatchers.Default) {
                         val lastOpened = getHistoryForBookUseCase(_state.value.book.id)?.time
-                        var isFirstChunkHandled = false
-                        var restoredToSavedScrollIndex = false
 
                         getTextUseCase.getProgressive(_state.value.book.id).collect { chunk ->
                             ensureActive()
@@ -139,28 +147,29 @@ class ReaderModel @Inject constructor(
                                 }
                                 ensureActive()
 
-                                updateBookUseCase(_state.value.book)
-
-                                LibraryScreen.refreshListChannel.trySend(0)
-                                HistoryScreen.refreshListChannel.trySend(0)
-
-                                onEvent(ReaderEvent.OnRestoreScroll)
-                                isFirstChunkHandled = true
-                                if (_state.value.book.scrollIndex in chunk.items.indices) {
-                                    restoredToSavedScrollIndex = true
+                                if (chunk.isLastChunk) {
+                                    isFullyLoaded = true
+                                    onEvent(ReaderEvent.OnRestoreScroll)
+                                } else {
+                                    if (initialTargetScrollIndex in chunk.items.indices) {
+                                        onEvent(ReaderEvent.OnRestoreScroll)
+                                    }
                                 }
                             } else {
                                 if (chunk.items.isNotEmpty()) {
                                     _state.update {
                                         it.copy(text = it.text + chunk.items)
                                     }
-                                    if (!restoredToSavedScrollIndex && _state.value.book.scrollIndex in _state.value.text.indices) {
-                                        _state.value.listState.requestScrollToItem(
-                                            index = _state.value.book.scrollIndex,
-                                            scrollOffset = _state.value.book.scrollOffset
-                                        )
-                                        restoredToSavedScrollIndex = true
-                                        onEvent(ReaderEvent.OnUpdateChapter(_state.value.book.scrollIndex))
+                                    if (!hasRestoredScroll && initialTargetScrollIndex in _state.value.text.indices) {
+                                        onEvent(ReaderEvent.OnRestoreScroll)
+                                    }
+                                }
+                                if (chunk.isLastChunk) {
+                                    isFullyLoaded = true
+                                    if (!hasRestoredScroll) {
+                                        onEvent(ReaderEvent.OnRestoreScroll)
+                                    } else {
+                                        _state.update { it.copy(isLoading = false) }
                                     }
                                 }
                             }
@@ -172,13 +181,14 @@ class ReaderModel @Inject constructor(
                     snapshotFlow { _state.value.listState.layoutInfo.totalItemsCount }.first { it > 0 }
 
                     val maxIndex = (_state.value.text.size - 1).coerceAtLeast(0)
-                    val targetIndex = _state.value.book.scrollIndex.coerceIn(0, maxIndex)
-                    val targetOffset = if (targetIndex == _state.value.book.scrollIndex) _state.value.book.scrollOffset else 0
+                    val targetIndex = initialTargetScrollIndex.coerceIn(0, maxIndex)
+                    val targetOffset = if (targetIndex == initialTargetScrollIndex) initialTargetScrollOffset else 0
 
                     _state.value.listState.requestScrollToItem(
                         index = targetIndex,
                         scrollOffset = targetOffset
                     )
+                    hasRestoredScroll = true
 
                     _state.update {
                         val (currentChapter, currentChapterProgress) = getChapterProgressUseCase(
@@ -188,7 +198,7 @@ class ReaderModel @Inject constructor(
                         it.copy(
                             currentChapter = currentChapter,
                             currentChapterProgress = currentChapterProgress,
-                            isLoading = false,
+                            isLoading = if (isFullyLoaded) false else it.isLoading,
                             errorMessage = null
                         )
                     }
@@ -342,6 +352,7 @@ class ReaderModel @Inject constructor(
                     }
 
                     if (
+                        hasRestoredScroll &&
                         !_state.value.isLoading &&
                         _state.value.text.isNotEmpty() &&
                         _state.value.errorMessage == null
@@ -369,6 +380,16 @@ class ReaderModel @Inject constructor(
 
                         updateBookUseCase(_state.value.book)
 
+                        LibraryScreen.refreshListChannel.trySend(0)
+                        HistoryScreen.refreshListChannel.trySend(0)
+                    } else {
+                        val updatedBook = _state.value.book.copy(
+                            progress = initialTargetProgress,
+                            scrollIndex = initialTargetScrollIndex,
+                            scrollOffset = initialTargetScrollOffset,
+                            lastOpened = System.currentTimeMillis()
+                        )
+                        updateBookUseCase(updatedBook)
                         LibraryScreen.refreshListChannel.trySend(0)
                         HistoryScreen.refreshListChannel.trySend(0)
                     }
@@ -474,6 +495,10 @@ class ReaderModel @Inject constructor(
                             index = currentIdx,
                             text = _state.value.text
                         )
+                        initialTargetScrollIndex = currentIdx
+                        initialTargetScrollOffset = 0
+                        initialTargetProgress = progress
+                        _state.value.listState.requestScrollToItem(currentIdx, 0)
                         _state.update {
                             it.copy(
                                 book = it.book.copy(
@@ -521,6 +546,10 @@ class ReaderModel @Inject constructor(
                             index = currentIdx,
                             text = _state.value.text
                         )
+                        initialTargetScrollIndex = currentIdx
+                        initialTargetScrollOffset = 0
+                        initialTargetProgress = progress
+                        _state.value.listState.requestScrollToItem(currentIdx, 0)
                         _state.update {
                             it.copy(
                                 book = it.book.copy(
@@ -609,11 +638,18 @@ class ReaderModel @Inject constructor(
                 return@launch
             }
 
+            initialTargetScrollIndex = book.scrollIndex
+            initialTargetScrollOffset = book.scrollOffset
+            initialTargetProgress = book.progress
+            hasRestoredScroll = false
+            isFullyLoaded = false
+
             clear()
 
             _state.update {
                 ReaderState(
-                    book = book
+                    book = book,
+                    isLoading = true
                 )
             }
 
@@ -650,14 +686,24 @@ class ReaderModel @Inject constructor(
     @OptIn(FlowPreview::class)
     suspend fun updateProgress(listState: LazyListState) {
         snapshotFlow {
-            listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
-        }.distinctUntilChanged().debounce(300).collectLatest { (index, offset) ->
+            Triple(
+                listState.firstVisibleItemIndex,
+                listState.firstVisibleItemScrollOffset,
+                listState.isScrollInProgress
+            )
+        }.distinctUntilChanged().debounce(300).collectLatest { (index, offset, isUserScrolling) ->
             if (
+                !hasRestoredScroll ||
                 _state.value.isLoading ||
                 listState.layoutInfo.totalItemsCount == 0 ||
                 _state.value.text.isEmpty() ||
                 _state.value.errorMessage != null
             ) return@collectLatest
+
+            // Guard against saving 0 if initial target was > 0 and scroll hasn't completed
+            if (initialTargetScrollIndex > 0 && index == 0 && !hasRestoredScroll) {
+                return@collectLatest
+            }
 
             // If Read Aloud is playing, the reading position is driven by Read Aloud.
             // Do not let listState overwrite reading progress while audio is playing.
@@ -665,9 +711,17 @@ class ReaderModel @Inject constructor(
                 return@collectLatest
             }
 
-            // If Read Aloud is paused, do not let an older stale listState index overwrite the paused reading position.
+            // If listState is lagging behind book.scrollIndex (e.g. Read Aloud read ahead in background or finished)
+            // and user is NOT actively dragging the screen, do NOT overwrite progress with stale index!
+            // Instead, request listState to catch up to the current book position.
+            if (!isUserScrolling && index < _state.value.book.scrollIndex) {
+                listState.requestScrollToItem(_state.value.book.scrollIndex, _state.value.book.scrollOffset)
+                return@collectLatest
+            }
+
+            // If Read Aloud has a current reading position, do not let an older stale listState index overwrite it
             val currentReadingIdx = _state.value.readAloudState.currentReadingIndex
-            if (currentReadingIdx != null && index < currentReadingIdx) {
+            if (currentReadingIdx != null && index < currentReadingIdx && !isUserScrolling) {
                 return@collectLatest
             }
 
@@ -676,6 +730,10 @@ class ReaderModel @Inject constructor(
                 index = index,
                 text = _state.value.text
             )
+
+            initialTargetScrollIndex = index
+            initialTargetScrollOffset = offset
+            initialTargetProgress = progress
 
             _state.update {
                 it.copy(
@@ -715,7 +773,7 @@ class ReaderModel @Inject constructor(
 
     private fun calculateProgress(firstVisibleItemIndex: Int? = null): Float {
         if (_state.value.text.isEmpty() || _state.value.errorMessage != null) {
-            return _state.value.book.progress
+            return initialTargetProgress.takeIf { it > 0f } ?: _state.value.book.progress
         }
 
         if (firstVisibleItemIndex != null) {
@@ -727,7 +785,7 @@ class ReaderModel @Inject constructor(
         }
 
         if (_state.value.isLoading || _state.value.listState.layoutInfo.totalItemsCount == 0) {
-            return _state.value.book.progress
+            return initialTargetProgress.takeIf { it > 0f } ?: _state.value.book.progress
         }
 
         if (_state.value.listState.firstVisibleItemIndex == 0) return 0f
@@ -814,6 +872,11 @@ class ReaderModel @Inject constructor(
                         text = allItems
                     )
 
+                    initialTargetScrollIndex = index
+                    initialTargetScrollOffset = 0
+                    initialTargetProgress = progress
+                    _state.value.listState.requestScrollToItem(index, 0)
+
                     _state.update {
                         it.copy(
                             book = it.book.copy(
@@ -852,11 +915,17 @@ class ReaderModel @Inject constructor(
 
             if (isActive && index >= allItems.size) {
                 readAloudNotificationManager.stop()
+                val lastIdx = allItems.lastIndex.coerceAtLeast(0)
+                initialTargetScrollIndex = lastIdx
+                initialTargetScrollOffset = 0
+                initialTargetProgress = 1f
+                _state.value.listState.requestScrollToItem(lastIdx, 0)
+
                 _state.update {
                     it.copy(
                         book = it.book.copy(
                             progress = 1f,
-                            scrollIndex = allItems.lastIndex.coerceAtLeast(0),
+                            scrollIndex = lastIdx,
                             scrollOffset = 0,
                             lastOpened = System.currentTimeMillis()
                         ),

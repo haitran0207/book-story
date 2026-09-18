@@ -10,6 +10,8 @@ import android.app.SearchManager
 import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -34,7 +36,10 @@ fun ReaderEffects(
     val navigator = LocalNavigator.current
     val activity = LocalActivity.current
 
-    LaunchedEffect(effects, book, fullscreen) {
+    val currentBook by rememberUpdatedState(book)
+    val currentFullscreen by rememberUpdatedState(fullscreen)
+
+    LaunchedEffect(effects) {
         effects.collect { effect ->
             when (effect) {
                 is ReaderEffect.OnSystemBarsVisibility -> {
@@ -44,7 +49,7 @@ fun ReaderEffects(
                     ).apply {
                         systemBarsBehavior = WindowInsetsControllerCompat
                             .BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                        if (effect.show ?: !fullscreen) show(WindowInsetsCompat.Type.systemBars())
+                        if (effect.show ?: !currentFullscreen) show(WindowInsetsCompat.Type.systemBars())
                         else hide(WindowInsetsCompat.Type.systemBars())
                     }
                 }
@@ -177,7 +182,7 @@ fun ReaderEffects(
                     if (effect.changePath) BookInfoScreen.changePathChannel.trySend(true)
                     navigator.push(
                         BookInfoScreen(
-                            bookId = book.id
+                            bookId = currentBook.id
                         ),
                         popping = true,
                         saveInBackStack = false
