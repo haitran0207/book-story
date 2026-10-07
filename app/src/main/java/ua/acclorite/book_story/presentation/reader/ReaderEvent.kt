@@ -80,7 +80,7 @@ sealed class ReaderEvent {
     ) : ReaderEvent()
 
     data object OnStartReadAloud : ReaderEvent()
-    data object OnPauseReadAloud : ReaderEvent()
+    data class OnPauseReadAloud(val isExplicitUserAction: Boolean = false) : ReaderEvent()
     data object OnResumeReadAloud : ReaderEvent()
     data object OnStopReadAloud : ReaderEvent()
     data class OnChangeReadAloudSpeed(val speed: Float) : ReaderEvent()

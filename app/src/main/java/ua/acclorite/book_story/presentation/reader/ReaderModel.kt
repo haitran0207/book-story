@@ -94,7 +94,7 @@ class ReaderModel @Inject constructor(
                         onEvent(ReaderEvent.OnResumeReadAloud)
                     }
                     ua.acclorite.book_story.domain.model.reader.ReadAloudAction.PAUSE -> {
-                        onEvent(ReaderEvent.OnPauseReadAloud)
+                        onEvent(ReaderEvent.OnPauseReadAloud(isExplicitUserAction = false))
                     }
                     ua.acclorite.book_story.domain.model.reader.ReadAloudAction.NEXT -> {
                         onEvent(ReaderEvent.OnNextReadAloudParagraph)
@@ -529,7 +529,8 @@ class ReaderModel @Inject constructor(
                         bookTitle = _state.value.book.title,
                         paragraphText = currentText,
                         isPlaying = false,
-                        speed = _state.value.readAloudState.speed
+                        speed = _state.value.readAloudState.speed,
+                        isExplicitUserAction = event.isExplicitUserAction
                     )
                 }
                 is ReaderEvent.OnResumeReadAloud -> {

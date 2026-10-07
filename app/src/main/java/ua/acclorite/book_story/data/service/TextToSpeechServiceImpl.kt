@@ -1,6 +1,7 @@
 package ua.acclorite.book_story.data.service
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
@@ -14,7 +15,9 @@ import java.text.Normalizer
 import java.util.Locale
 import java.util.UUID
 import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
 class TextToSpeechServiceImpl @Inject constructor(
     @ApplicationContext private val context: Context
 ) : TextToSpeechService, TextToSpeech.OnInitListener {
@@ -82,6 +85,16 @@ class TextToSpeechServiceImpl @Inject constructor(
                         defaultLocale = Locale.US
                         currentAppliedLocale = Locale.US
                     } catch (_: Exception) {}
+                }
+
+                try {
+                    val audioAttributes = AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                    engine.setAudioAttributes(audioAttributes)
+                } catch (e: Exception) {
+                    Log.e("TTS", "Error setting audio attributes on TTS init", e)
                 }
 
                 try {

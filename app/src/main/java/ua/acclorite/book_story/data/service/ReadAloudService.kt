@@ -5,18 +5,26 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.util.Log
+import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint
 import ua.acclorite.book_story.R
 import ua.acclorite.book_story.domain.model.reader.ReadAloudAction
+import ua.acclorite.book_story.domain.service.TextToSpeechService
 import ua.acclorite.book_story.presentation.main.MainActivity
 import javax.inject.Inject
 
@@ -26,6 +34,9 @@ class ReadAloudService : Service() {
     @Inject
     lateinit var readAloudNotificationManager: ReadAloudNotificationManager
 
+    @Inject
+    lateinit var textToSpeechService: TextToSpeechService
+
     private var mediaSession: MediaSession? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var isForeground = false
@@ -34,6 +45,15 @@ class ReadAloudService : Service() {
     private var currentParagraphText = ""
     private var isCurrentlyPlaying = false
     private var currentSpeed = 1.75f
+
+    private lateinit var audioManager: AudioManager
+    private var audioFocusRequest: AudioFocusRequest? = null
+    private var hasAudioFocus = false
+    private var pausedByTransientLoss = false
+
+    private var becomingNoisyReceiver: BroadcastReceiver? = null
+    private var isNoisyReceiverRegistered = false
+    private var onModeChangedListener: AudioManager.OnModeChangedListener? = null
 
     companion object {
         const val CHANNEL_ID = "read_aloud_channel"
@@ -51,13 +71,156 @@ class ReadAloudService : Service() {
         const val EXTRA_PARAGRAPH_TEXT = "extra_paragraph_text"
         const val EXTRA_IS_PLAYING = "extra_is_playing"
         const val EXTRA_SPEED = "extra_speed"
+        const val EXTRA_IS_USER_ACTION = "extra_is_user_action"
     }
 
     override fun onCreate() {
         super.onCreate()
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         createNotificationChannel()
         setupMediaSession()
         setupWakeLock()
+        setupModeChangedListener()
+    }
+
+    private fun setupModeChangedListener() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val listener = AudioManager.OnModeChangedListener { mode ->
+                Log.d("ReadAloudService", "AudioManager mode changed: $mode")
+                when (mode) {
+                    AudioManager.MODE_RINGTONE,
+                    AudioManager.MODE_IN_CALL,
+                    AudioManager.MODE_IN_COMMUNICATION -> {
+                        if (isCurrentlyPlaying) {
+                            Log.d("ReadAloudService", "Call/Ringtone mode active ($mode), pausing read-aloud")
+                            pausedByTransientLoss = true
+                            textToSpeechService.pause()
+                            readAloudNotificationManager.emitAction(ReadAloudAction.PAUSE)
+                        }
+                    }
+                    AudioManager.MODE_NORMAL -> {
+                        if (pausedByTransientLoss && hasAudioFocus) {
+                            Log.d("ReadAloudService", "Audio mode returned to NORMAL and has focus, resuming read-aloud")
+                            pausedByTransientLoss = false
+                            readAloudNotificationManager.emitAction(ReadAloudAction.PLAY)
+                        }
+                    }
+                }
+            }
+            onModeChangedListener = listener
+            try {
+                audioManager.addOnModeChangedListener(mainExecutor, listener)
+            } catch (e: Exception) {
+                Log.e("ReadAloudService", "Failed to add OnModeChangedListener", e)
+            }
+        }
+    }
+
+    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        Log.d("ReadAloudService", "onAudioFocusChange: $focusChange")
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                Log.d("ReadAloudService", "AudioFocus permanent loss")
+                pausedByTransientLoss = false
+                hasAudioFocus = false
+                textToSpeechService.pause()
+                readAloudNotificationManager.emitAction(ReadAloudAction.PAUSE)
+                abandonAudioFocusInternal()
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                Log.d("ReadAloudService", "AudioFocus transient loss: $focusChange")
+                if (isCurrentlyPlaying) {
+                    pausedByTransientLoss = true
+                    textToSpeechService.pause()
+                    readAloudNotificationManager.emitAction(ReadAloudAction.PAUSE)
+                }
+            }
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                Log.d("ReadAloudService", "AudioFocus gained. pausedByTransientLoss=$pausedByTransientLoss")
+                hasAudioFocus = true
+                if (pausedByTransientLoss) {
+                    pausedByTransientLoss = false
+                    readAloudNotificationManager.emitAction(ReadAloudAction.PLAY)
+                }
+            }
+        }
+    }
+
+    private fun requestAudioFocusInternal(): Boolean {
+        val attributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .build()
+
+        val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            .setAudioAttributes(attributes)
+            .setAcceptsDelayedFocusGain(false)
+            .setWillPauseWhenDucked(true)
+            .setOnAudioFocusChangeListener(audioFocusChangeListener)
+            .build()
+
+        audioFocusRequest = focusRequest
+        val result = audioManager.requestAudioFocus(focusRequest)
+        hasAudioFocus = (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
+        Log.d("ReadAloudService", "requestAudioFocus result: $result, hasAudioFocus: $hasAudioFocus")
+        return hasAudioFocus
+    }
+
+    private fun abandonAudioFocusInternal() {
+        if (hasAudioFocus || audioFocusRequest != null) {
+            audioFocusRequest?.let { request ->
+                try {
+                    audioManager.abandonAudioFocusRequest(request)
+                } catch (e: Exception) {
+                    Log.e("ReadAloudService", "Error abandoning audio focus", e)
+                }
+            }
+            audioFocusRequest = null
+            hasAudioFocus = false
+        }
+        unregisterBecomingNoisyReceiver()
+    }
+
+    private fun registerBecomingNoisyReceiver() {
+        if (!isNoisyReceiverRegistered) {
+            if (becomingNoisyReceiver == null) {
+                becomingNoisyReceiver = object : BroadcastReceiver() {
+                    override fun onReceive(context: Context?, intent: Intent?) {
+                        if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                            Log.d("ReadAloudService", "Audio becoming noisy, pausing read-aloud")
+                            pausedByTransientLoss = false
+                            textToSpeechService.pause()
+                            readAloudNotificationManager.emitAction(ReadAloudAction.PAUSE)
+                            abandonAudioFocusInternal()
+                        }
+                    }
+                }
+            }
+            val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+            try {
+                ContextCompat.registerReceiver(
+                    this,
+                    becomingNoisyReceiver,
+                    filter,
+                    ContextCompat.RECEIVER_NOT_EXPORTED
+                )
+                isNoisyReceiverRegistered = true
+            } catch (e: Exception) {
+                Log.e("ReadAloudService", "Error registering becomingNoisyReceiver", e)
+            }
+        }
+    }
+
+    private fun unregisterBecomingNoisyReceiver() {
+        if (isNoisyReceiverRegistered) {
+            try {
+                unregisterReceiver(becomingNoisyReceiver)
+            } catch (e: Exception) {
+                Log.e("ReadAloudService", "Error unregistering becomingNoisyReceiver", e)
+            }
+            isNoisyReceiverRegistered = false
+        }
     }
 
     private fun createNotificationChannel() {
@@ -81,10 +244,14 @@ class ReadAloudService : Service() {
             isActive = true
             setCallback(object : MediaSession.Callback() {
                 override fun onPlay() {
+                    pausedByTransientLoss = false
                     readAloudNotificationManager.emitAction(ReadAloudAction.PLAY)
                 }
 
                 override fun onPause() {
+                    pausedByTransientLoss = false
+                    abandonAudioFocusInternal()
+                    textToSpeechService.pause()
                     readAloudNotificationManager.emitAction(ReadAloudAction.PAUSE)
                 }
 
@@ -97,6 +264,9 @@ class ReadAloudService : Service() {
                 }
 
                 override fun onStop() {
+                    pausedByTransientLoss = false
+                    abandonAudioFocusInternal()
+                    textToSpeechService.stop()
                     readAloudNotificationManager.emitAction(ReadAloudAction.STOP)
                     stopServiceAndNotification()
                 }
@@ -114,15 +284,28 @@ class ReadAloudService : Service() {
             ACTION_UPDATE -> {
                 currentBookTitle = intent.getStringExtra(EXTRA_BOOK_TITLE) ?: currentBookTitle
                 currentParagraphText = intent.getStringExtra(EXTRA_PARAGRAPH_TEXT) ?: currentParagraphText
-                isCurrentlyPlaying = intent.getBooleanExtra(EXTRA_IS_PLAYING, isCurrentlyPlaying)
+                val newIsPlaying = intent.getBooleanExtra(EXTRA_IS_PLAYING, isCurrentlyPlaying)
                 currentSpeed = intent.getFloatExtra(EXTRA_SPEED, currentSpeed)
+                val isExplicitUserAction = intent.getBooleanExtra(EXTRA_IS_USER_ACTION, false)
 
+                if (!newIsPlaying) {
+                    if (isExplicitUserAction || !pausedByTransientLoss) {
+                        pausedByTransientLoss = false
+                        abandonAudioFocusInternal()
+                    }
+                }
+
+                isCurrentlyPlaying = newIsPlaying
                 updateMediaPlayback()
             }
             ACTION_PLAY -> {
+                pausedByTransientLoss = false
                 readAloudNotificationManager.emitAction(ReadAloudAction.PLAY)
             }
             ACTION_PAUSE -> {
+                pausedByTransientLoss = false
+                abandonAudioFocusInternal()
+                textToSpeechService.pause()
                 readAloudNotificationManager.emitAction(ReadAloudAction.PAUSE)
             }
             ACTION_NEXT -> {
@@ -132,11 +315,17 @@ class ReadAloudService : Service() {
                 readAloudNotificationManager.emitAction(ReadAloudAction.PREVIOUS)
             }
             ACTION_NOTIFICATION_STOP -> {
+                pausedByTransientLoss = false
+                abandonAudioFocusInternal()
+                textToSpeechService.stop()
                 readAloudNotificationManager.emitAction(ReadAloudAction.STOP)
                 stopServiceAndNotification()
             }
             ACTION_STOP -> {
                 // Programmatic stop from NotificationManager, do NOT re-emit action
+                pausedByTransientLoss = false
+                abandonAudioFocusInternal()
+                textToSpeechService.stop()
                 stopServiceAndNotification()
             }
         }
@@ -144,6 +333,20 @@ class ReadAloudService : Service() {
     }
 
     private fun updateMediaPlayback() {
+        if (isCurrentlyPlaying) {
+            if (!hasAudioFocus) {
+                val granted = requestAudioFocusInternal()
+                if (!granted) {
+                    Log.w("ReadAloudService", "Audio focus request denied, pausing playback")
+                    pausedByTransientLoss = false
+                    textToSpeechService.pause()
+                    readAloudNotificationManager.emitAction(ReadAloudAction.PAUSE)
+                    return
+                }
+            }
+            registerBecomingNoisyReceiver()
+        }
+
         val session = mediaSession ?: return
 
         val state = if (isCurrentlyPlaying) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED
@@ -284,6 +487,8 @@ class ReadAloudService : Service() {
     }
 
     private fun stopServiceAndNotification() {
+        pausedByTransientLoss = false
+        abandonAudioFocusInternal()
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
         }
@@ -299,6 +504,17 @@ class ReadAloudService : Service() {
     }
 
     override fun onDestroy() {
+        pausedByTransientLoss = false
+        abandonAudioFocusInternal()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            onModeChangedListener?.let {
+                try {
+                    audioManager.removeOnModeChangedListener(it)
+                } catch (e: Exception) {
+                    Log.e("ReadAloudService", "Error removing OnModeChangedListener", e)
+                }
+            }
+        }
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
         }

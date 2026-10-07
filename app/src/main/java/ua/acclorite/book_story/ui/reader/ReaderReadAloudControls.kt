@@ -62,7 +62,7 @@ fun ReaderReadAloudControls(
             FilledIconButton(
                 onClick = {
                     if (state.isPlaying) {
-                        onEvent(ReaderEvent.OnPauseReadAloud)
+                        onEvent(ReaderEvent.OnPauseReadAloud(isExplicitUserAction = true))
                     } else {
                         if (state.currentReadingIndex != null) {
                             onEvent(ReaderEvent.OnResumeReadAloud)

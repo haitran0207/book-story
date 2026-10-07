@@ -18,7 +18,7 @@ class ReadAloudNotificationManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val scope = CoroutineScope(Dispatchers.Main.immediate)
-    private val _actionEvents = MutableSharedFlow<ReadAloudAction>(extraBufferCapacity = 1)
+    private val _actionEvents = MutableSharedFlow<ReadAloudAction>(extraBufferCapacity = 16)
     val actionEvents = _actionEvents.asSharedFlow()
 
     fun emitAction(action: ReadAloudAction) {
@@ -27,7 +27,13 @@ class ReadAloudNotificationManager @Inject constructor(
         }
     }
 
-    fun update(bookTitle: String, paragraphText: String, isPlaying: Boolean, speed: Float) {
+    fun update(
+        bookTitle: String,
+        paragraphText: String,
+        isPlaying: Boolean,
+        speed: Float,
+        isExplicitUserAction: Boolean = false
+    ) {
         try {
             val intent = Intent(context, ReadAloudService::class.java).apply {
                 action = ReadAloudService.ACTION_UPDATE
@@ -35,6 +41,7 @@ class ReadAloudNotificationManager @Inject constructor(
                 putExtra(ReadAloudService.EXTRA_PARAGRAPH_TEXT, paragraphText)
                 putExtra(ReadAloudService.EXTRA_IS_PLAYING, isPlaying)
                 putExtra(ReadAloudService.EXTRA_SPEED, speed)
+                putExtra(ReadAloudService.EXTRA_IS_USER_ACTION, isExplicitUserAction)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isPlaying) {
                 context.startForegroundService(intent)
