@@ -62,6 +62,7 @@ class ReaderModel @Inject constructor(
     private val setReadAloudSpeedUseCase: ua.acclorite.book_story.domain.use_case.reader.SetReadAloudSpeedUseCase,
     private val setReadAloudPitchUseCase: ua.acclorite.book_story.domain.use_case.reader.SetReadAloudPitchUseCase,
     private val readAloudNotificationManager: ua.acclorite.book_story.data.service.ReadAloudNotificationManager,
+    private val backgroundMusicPlayer: ua.acclorite.book_story.data.service.ReadAloudBackgroundMusicPlayer,
     private val settingsManager: ua.acclorite.book_story.data.settings.SettingsManager
 ) : ViewModel() {
 
@@ -105,6 +106,22 @@ class ReaderModel @Inject constructor(
                     ua.acclorite.book_story.domain.model.reader.ReadAloudAction.STOP -> {
                         onEvent(ReaderEvent.OnStopReadAloud)
                     }
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            settingsManager.readAloudBgMusic.flow.collect { enabled ->
+                _state.update {
+                    it.copy(readAloudState = it.readAloudState.copy(isBgMusicEnabled = enabled))
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            settingsManager.readAloudBgMusicVolume.flow.collect { volume ->
+                _state.update {
+                    it.copy(readAloudState = it.readAloudState.copy(bgMusicVolume = volume))
                 }
             }
         }
@@ -488,6 +505,7 @@ class ReaderModel @Inject constructor(
                     readAloudJob?.cancel()
                     readAloudJob = null
                     pauseReadAloudUseCase()
+                    backgroundMusicPlayer.onReadAloudPause()
                     val currentIdx = _state.value.readAloudState.currentReadingIndex
                     if (currentIdx != null && currentIdx in _state.value.text.indices) {
                         val progress = calculateProgress(currentIdx)
@@ -570,6 +588,7 @@ class ReaderModel @Inject constructor(
                     readAloudJob?.cancel()
                     readAloudJob = null
                     stopReadAloudUseCase()
+                    backgroundMusicPlayer.onReadAloudStop()
                     readAloudNotificationManager.stop()
                     _state.update {
                         it.copy(
@@ -915,6 +934,7 @@ class ReaderModel @Inject constructor(
             }
 
             if (isActive && index >= allItems.size) {
+                backgroundMusicPlayer.onReadAloudStop()
                 readAloudNotificationManager.stop()
                 val lastIdx = allItems.lastIndex.coerceAtLeast(0)
                 initialTargetScrollIndex = lastIdx
@@ -965,6 +985,7 @@ class ReaderModel @Inject constructor(
         readAloudJob?.cancel()
         readAloudJob = null
         stopReadAloudUseCase()
+        backgroundMusicPlayer.onReadAloudStop()
         readAloudNotificationManager.stop()
     }
 }

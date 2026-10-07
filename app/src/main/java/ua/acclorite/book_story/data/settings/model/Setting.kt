@@ -11,6 +11,8 @@ import androidx.compose.runtime.Stable
 import androidx.datastore.preferences.core.Preferences
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 @Stable
@@ -26,6 +28,8 @@ class Setting<T, P>(
         @Composable get() = _value.collectAsStateWithLifecycle().value
     val lastValue: T
         get() = _value.value
+    val flow: StateFlow<T>
+        get() = _value.asStateFlow()
 
     fun update(value: T) {
         _value.update { value }

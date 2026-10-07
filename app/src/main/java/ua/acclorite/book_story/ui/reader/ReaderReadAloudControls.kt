@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.MusicOff
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Remove
@@ -23,12 +25,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import ua.acclorite.book_story.R
 import ua.acclorite.book_story.domain.reader.model.ReadAloudState
 import ua.acclorite.book_story.presentation.reader.ReaderEvent
+import ua.acclorite.book_story.ui.common.components.dialog.Dialog
+import ua.acclorite.book_story.ui.common.components.settings.SliderWithTitle
+import ua.acclorite.book_story.ui.common.components.settings.SwitchWithTitle
+import ua.acclorite.book_story.ui.common.helpers.LocalSettings
 import kotlin.math.roundToInt
 
 @Composable
@@ -36,6 +48,9 @@ fun ReaderReadAloudControls(
     state: ReadAloudState,
     onEvent: (ReaderEvent) -> Unit
 ) {
+    val settings = LocalSettings.current
+    var showBgMusicDialog by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -108,6 +123,17 @@ fun ReaderReadAloudControls(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
+            IconButton(
+                onClick = { showBgMusicDialog = true },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = if (settings.readAloudBgMusic.value) Icons.Default.MusicNote else Icons.Default.MusicOff,
+                    contentDescription = stringResource(id = R.string.read_aloud_bg_music),
+                    tint = if (settings.readAloudBgMusic.value) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
+            }
         }
 
         // Speed Controls: [-] [ 1.0x ] [+]
@@ -174,6 +200,41 @@ fun ReaderReadAloudControls(
                     imageVector = Icons.Default.Add,
                     contentDescription = "Increase speed",
                     tint = if (state.speed < 3.0f) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                )
+            }
+        }
+    }
+
+    if (showBgMusicDialog) {
+        Dialog(
+            icon = Icons.Default.MusicNote,
+            title = stringResource(id = R.string.read_aloud_bg_music),
+            description = stringResource(id = R.string.read_aloud_bg_music_track),
+            actionEnabled = true,
+            onDismiss = { showBgMusicDialog = false },
+            onAction = { showBgMusicDialog = false },
+            withContent = true
+        ) {
+            item {
+                SwitchWithTitle(
+                    selected = settings.readAloudBgMusic.value,
+                    title = stringResource(id = R.string.read_aloud_bg_music),
+                    description = stringResource(id = R.string.read_aloud_bg_music_desc),
+                    onClick = {
+                        settings.readAloudBgMusic.update(!settings.readAloudBgMusic.lastValue)
+                    }
+                )
+            }
+
+            item {
+                SliderWithTitle(
+                    value = Pair(settings.readAloudBgMusicVolume.value, "%"),
+                    fromValue = 0,
+                    toValue = 100,
+                    title = stringResource(id = R.string.read_aloud_bg_music_volume),
+                    onValueChange = { volume ->
+                        settings.readAloudBgMusicVolume.update(volume)
+                    }
                 )
             }
         }

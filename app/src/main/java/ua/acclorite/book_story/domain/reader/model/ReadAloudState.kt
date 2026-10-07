@@ -5,5 +5,7 @@ data class ReadAloudState(
     val speed: Float = 1.75f,
     val pitch: Float = 1.0f,
     val voice: String? = null,
-    val currentReadingIndex: Int? = null
+    val currentReadingIndex: Int? = null,
+    val isBgMusicEnabled: Boolean = true,
+    val bgMusicVolume: Int = 25
 )

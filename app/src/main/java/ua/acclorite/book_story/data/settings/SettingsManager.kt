@@ -258,6 +258,12 @@ class SettingsManager @Inject constructor(
     val highlightedReadingThickness = setting<Int, Int>(
         key = intPreferencesKey("highlighted_reading_thickness"), default = 2
     )
+    val readAloudBgMusic = setting<Boolean, Boolean>(
+        key = booleanPreferencesKey("read_aloud_bg_music"), default = true
+    )
+    val readAloudBgMusicVolume = setting<Int, Int>(
+        key = intPreferencesKey("read_aloud_bg_music_volume"), default = 25
+    )
     val chapterTitleAlignment = setting<ReaderTextAlignment, String>(
         key = stringPreferencesKey("chapter_title_alignment"),
         default = ReaderTextAlignment.JUSTIFY,

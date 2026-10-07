@@ -11,6 +11,14 @@
     <string name="browse_screen">Duyệt</string>
     <string name="settings_screen">Cài đặt</string>
     <string name="about_screen">Giới thiệu về ứng dụng</string>
+    <string name="read_aloud">Đọc to</string>
+    <string name="read_aloud_speed">Tốc độ đọc</string>
+    <string name="read_aloud_pitch">Cao độ giọng nói</string>
+    <string name="read_aloud_bg_music">Nhạc nền</string>
+    <string name="read_aloud_bg_music_desc">Phát nhạc nền thư giãn khi đọc to</string>
+    <string name="read_aloud_bg_music_volume">Âm lượng nhạc nền</string>
+    <string name="read_aloud_bg_music_track">Sóng não Alpha - Tăng tập trung &amp; ghi nhớ</string>
+    <string name="read_aloud_settings">Đọc to</string>
     <string name="add_books">Thêm sách?</string>
     <string name="delete_books">Xoá sách?</string>
     <string name="delete_book">Xoá sách?</string>

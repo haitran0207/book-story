@@ -37,6 +37,9 @@ class ReadAloudService : Service() {
     @Inject
     lateinit var textToSpeechService: TextToSpeechService
 
+    @Inject
+    lateinit var backgroundMusicPlayer: ReadAloudBackgroundMusicPlayer
+
     private var mediaSession: MediaSession? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var isForeground = false
@@ -95,6 +98,7 @@ class ReadAloudService : Service() {
                             Log.d("ReadAloudService", "Call/Ringtone mode active ($mode), pausing read-aloud")
                             pausedByTransientLoss = true
                             textToSpeechService.pause()
+                            backgroundMusicPlayer.onReadAloudPause()
                             readAloudNotificationManager.emitAction(ReadAloudAction.PAUSE)
                         }
                     }
@@ -124,6 +128,7 @@ class ReadAloudService : Service() {
                 pausedByTransientLoss = false
                 hasAudioFocus = false
                 textToSpeechService.pause()
+                backgroundMusicPlayer.onReadAloudPause()
                 readAloudNotificationManager.emitAction(ReadAloudAction.PAUSE)
                 abandonAudioFocusInternal()
             }
@@ -133,6 +138,7 @@ class ReadAloudService : Service() {
                 if (isCurrentlyPlaying) {
                     pausedByTransientLoss = true
                     textToSpeechService.pause()
+                    backgroundMusicPlayer.onReadAloudPause()
                     readAloudNotificationManager.emitAction(ReadAloudAction.PAUSE)
                 }
             }
@@ -141,6 +147,7 @@ class ReadAloudService : Service() {
                 hasAudioFocus = true
                 if (pausedByTransientLoss) {
                     pausedByTransientLoss = false
+                    backgroundMusicPlayer.onReadAloudPlay()
                     readAloudNotificationManager.emitAction(ReadAloudAction.PLAY)
                 }
             }
@@ -191,6 +198,7 @@ class ReadAloudService : Service() {
                             Log.d("ReadAloudService", "Audio becoming noisy, pausing read-aloud")
                             pausedByTransientLoss = false
                             textToSpeechService.pause()
+                            backgroundMusicPlayer.onReadAloudPause()
                             readAloudNotificationManager.emitAction(ReadAloudAction.PAUSE)
                             abandonAudioFocusInternal()
                         }
@@ -245,6 +253,7 @@ class ReadAloudService : Service() {
             setCallback(object : MediaSession.Callback() {
                 override fun onPlay() {
                     pausedByTransientLoss = false
+                    backgroundMusicPlayer.onReadAloudPlay()
                     readAloudNotificationManager.emitAction(ReadAloudAction.PLAY)
                 }
 
@@ -252,6 +261,7 @@ class ReadAloudService : Service() {
                     pausedByTransientLoss = false
                     abandonAudioFocusInternal()
                     textToSpeechService.pause()
+                    backgroundMusicPlayer.onReadAloudPause()
                     readAloudNotificationManager.emitAction(ReadAloudAction.PAUSE)
                 }
 
@@ -267,6 +277,7 @@ class ReadAloudService : Service() {
                     pausedByTransientLoss = false
                     abandonAudioFocusInternal()
                     textToSpeechService.stop()
+                    backgroundMusicPlayer.onReadAloudStop()
                     readAloudNotificationManager.emitAction(ReadAloudAction.STOP)
                     stopServiceAndNotification()
                 }
@@ -297,15 +308,23 @@ class ReadAloudService : Service() {
 
                 isCurrentlyPlaying = newIsPlaying
                 updateMediaPlayback()
+
+                if (isCurrentlyPlaying) {
+                    backgroundMusicPlayer.onReadAloudPlay()
+                } else {
+                    backgroundMusicPlayer.onReadAloudPause()
+                }
             }
             ACTION_PLAY -> {
                 pausedByTransientLoss = false
+                backgroundMusicPlayer.onReadAloudPlay()
                 readAloudNotificationManager.emitAction(ReadAloudAction.PLAY)
             }
             ACTION_PAUSE -> {
                 pausedByTransientLoss = false
                 abandonAudioFocusInternal()
                 textToSpeechService.pause()
+                backgroundMusicPlayer.onReadAloudPause()
                 readAloudNotificationManager.emitAction(ReadAloudAction.PAUSE)
             }
             ACTION_NEXT -> {
@@ -318,6 +337,7 @@ class ReadAloudService : Service() {
                 pausedByTransientLoss = false
                 abandonAudioFocusInternal()
                 textToSpeechService.stop()
+                backgroundMusicPlayer.onReadAloudStop()
                 readAloudNotificationManager.emitAction(ReadAloudAction.STOP)
                 stopServiceAndNotification()
             }
@@ -326,6 +346,7 @@ class ReadAloudService : Service() {
                 pausedByTransientLoss = false
                 abandonAudioFocusInternal()
                 textToSpeechService.stop()
+                backgroundMusicPlayer.onReadAloudStop()
                 stopServiceAndNotification()
             }
         }
@@ -489,6 +510,7 @@ class ReadAloudService : Service() {
     private fun stopServiceAndNotification() {
         pausedByTransientLoss = false
         abandonAudioFocusInternal()
+        backgroundMusicPlayer.onReadAloudStop()
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
         }
@@ -506,6 +528,7 @@ class ReadAloudService : Service() {
     override fun onDestroy() {
         pausedByTransientLoss = false
         abandonAudioFocusInternal()
+        backgroundMusicPlayer.onReadAloudStop()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             onModeChangedListener?.let {
                 try {

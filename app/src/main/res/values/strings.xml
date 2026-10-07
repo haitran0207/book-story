@@ -31,6 +31,11 @@
     <string name="stop">Stop</string>
     <string name="read_aloud_speed">Reading Speed</string>
     <string name="read_aloud_pitch">Voice Pitch</string>
+    <string name="read_aloud_bg_music">Background Music</string>
+    <string name="read_aloud_bg_music_desc">Play relaxing background music while reading aloud</string>
+    <string name="read_aloud_bg_music_volume">Background Music Volume</string>
+    <string name="read_aloud_bg_music_track">Alpha Brainwaves - Focus &amp; Memory</string>
+    <string name="read_aloud_settings">Read Aloud</string>
 
     <!-- Dialog Labels -->
     <string name="add_books">Add books?</string>
