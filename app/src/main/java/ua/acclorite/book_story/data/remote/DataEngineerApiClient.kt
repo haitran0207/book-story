@@ -45,15 +45,22 @@ class DataEngineerApiClient @Inject constructor() {
         return "$cleanBase/$cleanEndpoint"
     }
 
+    private fun createConnection(urlStr: String, connectTimeoutMs: Int, readTimeoutMs: Int = connectTimeoutMs): HttpURLConnection {
+        val url = URL(urlStr)
+        val connection = url.openConnection() as HttpURLConnection
+        connection.connectTimeout = connectTimeoutMs
+        connection.readTimeout = readTimeoutMs
+        connection.setRequestProperty("User-Agent", "BookStory/1.8 (Android; Mobile)")
+        return connection
+    }
+
     suspend fun pingServer(baseUrl: String): Result<Boolean> = withContext(Dispatchers.IO) {
         runCatching {
             val urlStr = normalizeUrl(baseUrl, "auth-api/login")
-            val url = URL(urlStr)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.connectTimeout = 4000
-            connection.readTimeout = 4000
+            val connection = createConnection(urlStr, 4000)
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
+            connection.setRequestProperty("Accept", "application/json")
             connection.doOutput = true
             connection.outputStream.use { os ->
                 os.write("{}".toByteArray())
@@ -72,10 +79,7 @@ class DataEngineerApiClient @Inject constructor() {
             val urlStr = normalizeUrl(baseUrl, "auth-api/login")
             logI(TAG, "Logging in to $urlStr for ${req.usernameOrEmail}")
 
-            val url = URL(urlStr)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.connectTimeout = 10000
-            connection.readTimeout = 10000
+            val connection = createConnection(urlStr, 10000)
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
             connection.setRequestProperty("Accept", "application/json")
@@ -117,10 +121,7 @@ class DataEngineerApiClient @Inject constructor() {
             val urlStr = normalizeUrl(baseUrl, "auth-api/register")
             logI(TAG, "Registering to $urlStr for ${req.username}")
 
-            val url = URL(urlStr)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.connectTimeout = 10000
-            connection.readTimeout = 10000
+            val connection = createConnection(urlStr, 10000)
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
             connection.setRequestProperty("Accept", "application/json")
@@ -163,10 +164,7 @@ class DataEngineerApiClient @Inject constructor() {
             val urlStr = normalizeUrl(baseUrl, "book-management/get-all-books")
             logI(TAG, "Fetching all books from $urlStr")
 
-            val url = URL(urlStr)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.connectTimeout = 12000
-            connection.readTimeout = 12000
+            val connection = createConnection(urlStr, 12000)
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
             connection.setRequestProperty("Accept", "application/json")
@@ -210,10 +208,7 @@ class DataEngineerApiClient @Inject constructor() {
             val urlStr = normalizeUrl(baseUrl, "book-management/download-book")
             logI(TAG, "Downloading book $bookId from $urlStr to ${destinationFile.absolutePath}")
 
-            val url = URL(urlStr)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.connectTimeout = 15000
-            connection.readTimeout = 60000
+            val connection = createConnection(urlStr, 15000, 60000)
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
             if (!token.isNullOrBlank()) {

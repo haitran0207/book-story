@@ -576,7 +576,7 @@
     <string name="connect_logout_success">Disconnected from DataEngineer.</string>
     <string name="connect_no_books">No books available on the server.</string>
     <string name="connect_configure_server">Configure Server URL</string>
-    <string name="connect_server_url_hint">e.g. http://172.20.2.76:8082/data-api</string>
+    <string name="connect_server_url_hint">e.g. https://naiah.io.vn/data-api</string>
     <string name="connect_error_empty_credentials">Please enter username and password.</string>
 
 </resources>

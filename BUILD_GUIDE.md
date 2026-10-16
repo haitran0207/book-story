@@ -183,7 +183,7 @@ The app supports multiple environment profiles/flavors to connect to different b
 | :--- | :--- | :--- | :--- |
 | `dev` | `http://172.20.2.76:8082/data-api` | `DEV_SERVER_URL` | `./gradlew assembleDevDebug` |
 | `dev-ubuntu` | `http://192.168.1.21:8083/data-api` | `DEV_UBUNTU_SERVER_URL` / `DEV_UBUNTU_URL` | `./gradlew assembleDev-ubuntuDebug` |
-| `prod` | `http://172.20.2.76:8082/data-api` | `PROD_SERVER_URL` | `./gradlew assembleProdRelease` |
+| `prod` | `https://naiah.io.vn/data-api` | `PROD_SERVER_URL` / `SERVER_URL` | `./gradlew assembleProdRelease` |
 
 ### Building with `dev-ubuntu` Profile
 ```bash

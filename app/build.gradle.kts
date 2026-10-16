@@ -110,15 +110,23 @@ android {
             useSupportLibrary = true
         }
 
-        buildConfigField("String", "BACKEND_BASE_URL", "\"http://172.20.2.76:8082/data-api\"")
+        buildConfigField("String", "BACKEND_BASE_URL", "\"https://naiah.io.vn/data-api\"")
     }
 
     fun formatServerUrl(rawUrl: String): String {
-        val trimmed = rawUrl.trim()
-        return if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
-            "http://$trimmed"
+        var trimmed = rawUrl.trim()
+        if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+            trimmed = if (trimmed.startsWith("localhost") || trimmed.matches(Regex("^\\d+\\.\\d+\\.\\d+\\.\\d+.*"))) {
+                "http://$trimmed"
+            } else {
+                "https://$trimmed"
+            }
+        }
+        val cleanUrl = trimmed.trimEnd('/')
+        return if (!cleanUrl.endsWith("/data-api")) {
+            "$cleanUrl/data-api"
         } else {
-            trimmed
+            cleanUrl
         }
     }
 
@@ -128,7 +136,7 @@ android {
             dimension = "env"
             val devUrl = project.findProperty("DEV_SERVER_URL") as String?
                 ?: System.getenv("DEV_SERVER_URL")
-                ?: "http://172.20.2.76:8082/data-api"
+                ?: "https://naiah.io.vn/data-api"
             buildConfigField("String", "BACKEND_BASE_URL", "\"${formatServerUrl(devUrl)}\"")
         }
 
@@ -145,8 +153,10 @@ android {
         create("prod") {
             dimension = "env"
             val prodUrl = project.findProperty("PROD_SERVER_URL") as String?
+                ?: project.findProperty("SERVER_URL") as String?
                 ?: System.getenv("PROD_SERVER_URL")
-                ?: "http://172.20.2.76:8082/data-api"
+                ?: System.getenv("SERVER_URL")
+                ?: "https://naiah.io.vn/data-api"
             buildConfigField("String", "BACKEND_BASE_URL", "\"${formatServerUrl(prodUrl)}\"")
         }
     }
